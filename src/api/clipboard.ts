@@ -7,6 +7,8 @@ import type {
   ClipboardDeletedEvent,
   ClipboardItem,
   ClipboardMonitorStatus,
+  DesktopSettings,
+  DesktopSettingsUpdate,
 } from "@/types/clipboard";
 
 export function listClipboardDates(): Promise<ClipboardDateGroup[]> {
@@ -43,6 +45,22 @@ export function setClipboardMonitorEnabled(enabled: boolean): Promise<ClipboardM
 
 export function getClipboardMonitorStatus(): Promise<ClipboardMonitorStatus> {
   return invoke("get_clipboard_monitor_status");
+}
+
+export function getDesktopSettings(): Promise<DesktopSettings> {
+  return invoke("get_desktop_settings");
+}
+
+export function updateDesktopSettings(settings: DesktopSettingsUpdate): Promise<DesktopSettings> {
+  return invoke("update_desktop_settings", { settings });
+}
+
+export function hideMainWindow(): Promise<void> {
+  return invoke("hide_main_window");
+}
+
+export function showMainWindow(): Promise<void> {
+  return invoke("show_main_window");
 }
 
 export function onClipboardItemCreated(

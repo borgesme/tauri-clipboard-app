@@ -1,8 +1,9 @@
-﻿use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::repository::{
     get_item_by_id, init_database, list_date_groups, list_items_by_date, search_items,
-    soft_delete_item, soft_delete_items_by_date, upsert_text_item,
+    cleanup_items, get_i64_setting, set_setting, soft_delete_item, soft_delete_items_by_date,
+    upsert_text_item,
 };
 
 fn temp_database_path(name: &str) -> std::path::PathBuf {
@@ -101,4 +102,49 @@ fn soft_deletes_all_items_by_date() {
     assert_eq!(2, changed);
     assert!(list_items_by_date(&path, "2026-05-26").unwrap().is_empty());
     assert_eq!(1, list_items_by_date(&path, "2026-05-27").unwrap().len());
+}
+
+
+#[test]
+fn settings_default_and_update_roundtrip() {
+    let path = temp_database_path("settings");
+    init_database(&path).unwrap();
+
+    assert_eq!(30, get_i64_setting(&path, "retention_days", 30).unwrap());
+    set_setting(&path, "retention_days", "7", "2026-05-26T10:00:00+08:00").unwrap();
+
+    assert_eq!(7, get_i64_setting(&path, "retention_days", 30).unwrap());
+}
+
+#[test]
+fn cleanup_items_removes_old_dates() {
+    let path = temp_database_path("cleanup-date");
+    init_database(&path).unwrap();
+
+    upsert_text_item(&path, "old", "hash-1", "2026-05-01T10:00:00+08:00").unwrap();
+    upsert_text_item(&path, "new", "hash-2", "2026-05-26T10:00:00+08:00").unwrap();
+
+    let changed = cleanup_items(&path, "2026-05-10", 100, "2026-05-27T10:00:00+08:00").unwrap();
+
+    assert_eq!(1, changed);
+    assert!(search_items(&path, "old").unwrap().is_empty());
+    assert_eq!(1, search_items(&path, "new").unwrap().len());
+}
+
+#[test]
+fn cleanup_items_respects_max_record_count() {
+    let path = temp_database_path("cleanup-count");
+    init_database(&path).unwrap();
+
+    upsert_text_item(&path, "first", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
+    upsert_text_item(&path, "second", "hash-2", "2026-05-26T11:00:00+08:00").unwrap();
+    upsert_text_item(&path, "third", "hash-3", "2026-05-26T12:00:00+08:00").unwrap();
+
+    let changed = cleanup_items(&path, "2026-05-01", 2, "2026-05-27T10:00:00+08:00").unwrap();
+    let items = list_items_by_date(&path, "2026-05-26").unwrap();
+
+    assert_eq!(1, changed);
+    assert_eq!(2, items.len());
+    assert_eq!("third", items[0].content);
+    assert_eq!("second", items[1].content);
 }

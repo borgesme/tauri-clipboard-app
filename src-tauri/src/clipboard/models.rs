@@ -1,4 +1,4 @@
-﻿use serde::Serialize;
+﻿use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,4 +37,26 @@ pub struct ClipboardDeletedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardMonitorStatus {
     pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSettings {
+    pub autostart_enabled: bool,
+    pub retention_days: i64,
+    pub max_record_count: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSettingsUpdate {
+    pub autostart_enabled: bool,
+    pub retention_days: i64,
+    pub max_record_count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredSettings {
+    pub retention_days: i64,
+    pub max_record_count: i64,
 }

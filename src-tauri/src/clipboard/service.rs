@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+﻿use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -7,8 +7,12 @@ use chrono::Local;
 
 use super::error::ClipboardError;
 use super::hash::content_hash;
-use super::models::{ClipboardDateGroup, ClipboardItem, ClipboardMonitorStatus};
+use super::models::{
+    ClipboardDateGroup, ClipboardItem, ClipboardMonitorStatus, DesktopSettings,
+    DesktopSettingsUpdate,
+};
 use super::repository;
+use super::settings;
 
 const APP_WRITE_IGNORE_WINDOW: Duration = Duration::from_secs(2);
 
@@ -40,19 +44,17 @@ impl ClipboardService {
         if !self.is_monitor_enabled()? {
             return Ok(None);
         }
-
         let content = read_clipboard_text()?;
         if content.is_empty() {
             return Ok(None);
         }
-
         let hash = content_hash(&content);
         if self.should_skip_hash(&hash)? {
             return Ok(None);
         }
-
         let item = repository::upsert_text_item(&self.database_path, &content, &hash, &now_iso())?;
         self.remember_seen_hash(hash)?;
+        self.apply_retention_policy()?;
         Ok(Some(item))
     }
 
@@ -76,7 +78,6 @@ impl ClipboardService {
         let item = self.get_item(id)?;
         let mut clipboard = Clipboard::new()?;
         clipboard.set_text(item.content)?;
-
         let mut guard = self.lock_app_write()?;
         *guard = Some(AppWriteGuard {
             hash: item.content_hash,
@@ -108,6 +109,38 @@ impl ClipboardService {
         })
     }
 
+    pub fn desktop_settings(&self, autostart_enabled: bool) -> Result<DesktopSettings, ClipboardError> {
+        let stored = settings::get_stored_settings(&self.database_path)?;
+        Ok(DesktopSettings {
+            autostart_enabled,
+            retention_days: stored.retention_days,
+            max_record_count: stored.max_record_count,
+        })
+    }
+
+    pub fn update_desktop_settings(
+        &self,
+        update: DesktopSettingsUpdate,
+        autostart_enabled: bool,
+    ) -> Result<DesktopSettings, ClipboardError> {
+        let stored = settings::update_stored_settings(
+            &self.database_path,
+            update.retention_days,
+            update.max_record_count,
+        )?;
+        self.apply_retention_policy()?;
+        Ok(DesktopSettings {
+            autostart_enabled,
+            retention_days: stored.retention_days,
+            max_record_count: stored.max_record_count,
+        })
+    }
+
+    fn apply_retention_policy(&self) -> Result<(), ClipboardError> {
+        settings::apply_retention_policy(&self.database_path)?;
+        Ok(())
+    }
+
     fn seed_current_clipboard_hash(&self) -> Result<(), ClipboardError> {
         let content = read_clipboard_text()?;
         if !content.is_empty() {
@@ -120,12 +153,10 @@ impl ClipboardService {
         if self.is_last_seen_hash(hash)? {
             return Ok(true);
         }
-
         if self.is_recent_app_write(hash)? {
             self.remember_seen_hash(hash.to_string())?;
             return Ok(true);
         }
-
         Ok(false)
     }
 

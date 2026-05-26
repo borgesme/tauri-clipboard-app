@@ -1,10 +1,14 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_autostart::ManagerExt;
+
+use crate::desktop::{hide_main_window as hide_window, show_main_window as show_window};
 
 use super::error::ClipboardError;
 use super::models::{
     ClipboardDateGroup, ClipboardDeletedEvent, ClipboardItem, ClipboardMonitorStatus,
+    DesktopSettings, DesktopSettingsUpdate,
 };
 use super::service::ClipboardService;
 
@@ -87,6 +91,49 @@ pub fn get_clipboard_monitor_status(
     state: State<'_, ClipboardState>,
 ) -> Result<ClipboardMonitorStatus, ClipboardError> {
     state.0.monitor_status()
+}
+
+#[tauri::command]
+pub fn get_desktop_settings(
+    app_handle: AppHandle,
+    state: State<'_, ClipboardState>,
+) -> Result<DesktopSettings, ClipboardError> {
+    let autostart_enabled = autostart_enabled(&app_handle)?;
+    state.0.desktop_settings(autostart_enabled)
+}
+
+#[tauri::command]
+pub fn update_desktop_settings(
+    app_handle: AppHandle,
+    settings: DesktopSettingsUpdate,
+    state: State<'_, ClipboardState>,
+) -> Result<DesktopSettings, ClipboardError> {
+    set_autostart_enabled(&app_handle, settings.autostart_enabled)?;
+    let autostart_enabled = autostart_enabled(&app_handle)?;
+    state.0.update_desktop_settings(settings, autostart_enabled)
+}
+
+#[tauri::command]
+pub fn hide_main_window(app_handle: AppHandle) -> Result<(), ClipboardError> {
+    hide_window(&app_handle)
+}
+
+#[tauri::command]
+pub fn show_main_window(app_handle: AppHandle) -> Result<(), ClipboardError> {
+    show_window(&app_handle)
+}
+
+fn autostart_enabled(app_handle: &AppHandle) -> Result<bool, ClipboardError> {
+    app_handle
+        .autolaunch()
+        .is_enabled()
+        .map_err(|error| ClipboardError::Runtime(error.to_string()))
+}
+
+fn set_autostart_enabled(app_handle: &AppHandle, enabled: bool) -> Result<(), ClipboardError> {
+    let autostart = app_handle.autolaunch();
+    let result = if enabled { autostart.enable() } else { autostart.disable() };
+    result.map_err(|error| ClipboardError::Runtime(error.to_string()))
 }
 
 fn emit_deleted(app_handle: &AppHandle, id: Option<i64>, date: Option<String>) {

@@ -26,3 +26,11 @@ export interface ClipboardDeletedEvent {
 export interface ClipboardMonitorStatus {
   enabled: boolean;
 }
+
+export interface DesktopSettings {
+  autostartEnabled: boolean;
+  retentionDays: number;
+  maxRecordCount: number;
+}
+
+export type DesktopSettingsUpdate = DesktopSettings;

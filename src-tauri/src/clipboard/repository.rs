@@ -31,7 +31,12 @@ pub fn init_database(path: &Path) -> Result<(), ClipboardError> {
             WHERE deleted_at IS NULL;
         CREATE INDEX IF NOT EXISTS idx_clipboard_items_created_at_active
             ON clipboard_items(created_at)
-            WHERE deleted_at IS NULL;",
+            WHERE deleted_at IS NULL;
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );",
     )?;
 
     Ok(())
@@ -45,22 +50,10 @@ pub fn upsert_text_item(
 ) -> Result<ClipboardItem, ClipboardError> {
     let connection = Connection::open(path)?;
     if let Some(id) = find_active_id_by_hash(&connection, content_hash)? {
-        connection.execute(
-            "UPDATE clipboard_items
-             SET last_copied_at = ?1, copy_count = copy_count + 1
-             WHERE id = ?2 AND deleted_at IS NULL",
-            params![now, id],
-        )?;
+        update_existing_item(&connection, id, now)?;
         return get_item_by_id_with_connection(&connection, id);
     }
-
-    connection.execute(
-        "INSERT INTO clipboard_items
-         (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
-        params![CONTENT_TYPE_TEXT, content, preview(content), content_hash, now, now],
-    )?;
-
+    insert_text_item(&connection, content, content_hash, now)?;
     get_item_by_id_with_connection(&connection, connection.last_insert_rowid())
 }
 
@@ -79,7 +72,6 @@ pub fn list_date_groups(path: &Path) -> Result<Vec<ClipboardDateGroup>, Clipboar
             count: row.get(1)?,
         })
     })?;
-
     rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
 }
 
@@ -92,7 +84,6 @@ pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>,
          ORDER BY last_copied_at DESC, id DESC",
     )?;
     let rows = statement.query_map([date], map_item)?;
-
     rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
 }
 
@@ -101,7 +92,6 @@ pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, Cl
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
-
     let connection = Connection::open(path)?;
     let pattern = format!("%{trimmed}%");
     let mut statement = connection.prepare(
@@ -111,7 +101,6 @@ pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, Cl
          ORDER BY last_copied_at DESC, id DESC",
     )?;
     let rows = statement.query_map([pattern], map_item)?;
-
     rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
 }
 
@@ -126,11 +115,9 @@ pub fn soft_delete_item(path: &Path, id: i64, now: &str) -> Result<(), Clipboard
         "UPDATE clipboard_items SET deleted_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
         params![now, id],
     )?;
-
     if changed == 0 {
         return Err(ClipboardError::NotFound(id));
     }
-
     Ok(())
 }
 
@@ -146,8 +133,94 @@ pub fn soft_delete_items_by_date(
          WHERE substr(created_at, 1, 10) = ?2 AND deleted_at IS NULL",
         params![now, date],
     )?;
-
     Ok(changed)
+}
+
+pub fn get_i64_setting(path: &Path, key: &str, default: i64) -> Result<i64, ClipboardError> {
+    let connection = Connection::open(path)?;
+    let value = connection
+        .query_row("SELECT value FROM app_settings WHERE key = ?1", [key], |row| row.get(0))
+        .optional()?;
+    Ok(value.and_then(|text: String| text.parse().ok()).unwrap_or(default))
+}
+
+pub fn set_setting(path: &Path, key: &str, value: &str, now: &str) -> Result<(), ClipboardError> {
+    let connection = Connection::open(path)?;
+    connection.execute(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        params![key, value, now],
+    )?;
+    Ok(())
+}
+
+pub fn cleanup_items(
+    path: &Path,
+    cutoff_date: &str,
+    max_record_count: i64,
+    now: &str,
+) -> Result<usize, ClipboardError> {
+    let connection = Connection::open(path)?;
+    let by_date = cleanup_by_date(&connection, cutoff_date, now)?;
+    let by_count = cleanup_by_count(&connection, max_record_count, now)?;
+    Ok(by_date + by_count)
+}
+
+fn update_existing_item(connection: &Connection, id: i64, now: &str) -> Result<(), ClipboardError> {
+    connection.execute(
+        "UPDATE clipboard_items
+         SET last_copied_at = ?1, copy_count = copy_count + 1
+         WHERE id = ?2 AND deleted_at IS NULL",
+        params![now, id],
+    )?;
+    Ok(())
+}
+
+fn insert_text_item(
+    connection: &Connection,
+    content: &str,
+    content_hash: &str,
+    now: &str,
+) -> Result<(), ClipboardError> {
+    connection.execute(
+        "INSERT INTO clipboard_items
+         (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
+        params![CONTENT_TYPE_TEXT, content, preview(content), content_hash, now, now],
+    )?;
+    Ok(())
+}
+
+fn cleanup_by_date(connection: &Connection, cutoff_date: &str, now: &str) -> Result<usize, ClipboardError> {
+    connection
+        .execute(
+            "UPDATE clipboard_items
+             SET deleted_at = ?1
+             WHERE deleted_at IS NULL AND substr(created_at, 1, 10) < ?2",
+            params![now, cutoff_date],
+        )
+        .map_err(ClipboardError::from)
+}
+
+fn cleanup_by_count(
+    connection: &Connection,
+    max_record_count: i64,
+    now: &str,
+) -> Result<usize, ClipboardError> {
+    connection
+        .execute(
+            "UPDATE clipboard_items
+             SET deleted_at = ?1
+             WHERE id IN (
+                SELECT id FROM clipboard_items
+                WHERE deleted_at IS NULL
+                ORDER BY last_copied_at DESC, id DESC
+                LIMIT -1 OFFSET ?2
+             )",
+            params![now, max_record_count],
+        )
+        .map_err(ClipboardError::from)
 }
 
 fn find_active_id_by_hash(
@@ -177,7 +250,6 @@ fn get_item_by_id_with_connection(
             map_item,
         )
         .optional()?;
-
     item.ok_or(ClipboardError::NotFound(id))
 }
 

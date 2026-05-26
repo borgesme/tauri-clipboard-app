@@ -1,18 +1,21 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   clearClipboardItemsByDate,
   copyClipboardItem,
   deleteClipboardItem,
   getClipboardMonitorStatus,
+  getDesktopSettings,
+  hideMainWindow,
   listClipboardDates,
   listClipboardItems,
   searchClipboardItems,
   setClipboardMonitorEnabled,
+  updateDesktopSettings,
 } from "@/api/clipboard";
 import { useClipboardEvents } from "@/hooks/useClipboardEvents";
 import { todayKey } from "@/lib/date";
-import type { ClipboardDateGroup, ClipboardItem } from "@/types/clipboard";
+import type { ClipboardDateGroup, ClipboardItem, DesktopSettings } from "@/types/clipboard";
 
 export function useClipboardWorkspace() {
   const [dates, setDates] = useState<ClipboardDateGroup[]>([]);
@@ -21,6 +24,7 @@ export function useClipboardWorkspace() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [monitorEnabled, setMonitorEnabled] = useState(true);
+  const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null);
   const [message, setMessage] = useState("复制一段文本后，它会自动出现在这里。");
   const [errorMessage, setErrorMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -30,14 +34,9 @@ export function useClipboardWorkspace() {
   const loadItems = useLoadItems(searchTerm, selectedDate, setLoadedItems);
   const refreshView = useRefreshView({ loadDates, loadItems, setIsBusy, setErrorMessage });
 
-  useInitialMonitorStatus(setMonitorEnabled, setErrorMessage);
+  useInitialStatus({ setMonitorEnabled, setDesktopSettings, setErrorMessage });
   useEffect(() => void refreshView(), [refreshView]);
-  useClipboardEvents({
-    refreshView,
-    setMessage,
-    setErrorMessage,
-    setMonitorEnabled,
-  });
+  useClipboardEvents({ refreshView, setMessage, setErrorMessage, setMonitorEnabled });
 
   return {
     dates,
@@ -46,16 +45,19 @@ export function useClipboardWorkspace() {
     selectedItem,
     searchTerm,
     monitorEnabled,
+    desktopSettings,
     message,
     errorMessage,
     isBusy,
     setSearchTerm,
     setSelectedItemId,
     selectDate: createDateSelector(setSelectedDate, setSearchTerm, setMessage),
-    toggleMonitor: createMonitorToggle(monitorEnabled, setMonitorEnabled, setMessage),
-    clearDate: createClearDate(selectedDate, refreshView, setMessage),
+    toggleMonitor: createMonitorToggle({ monitorEnabled, setMonitorEnabled, setMessage }),
+    clearDate: createClearDate({ selectedDate, refreshView, setMessage }),
     copyItem: createCopyItem(setMessage),
     deleteItem: createDeleteItem(refreshView, setMessage),
+    updateSettings: createSettingsUpdater({ setDesktopSettings, setIsBusy, setErrorMessage, setMessage, refreshView }),
+    hideWindow: createHideWindow(setErrorMessage),
   };
 }
 
@@ -97,12 +99,7 @@ interface RefreshViewOptions {
   setErrorMessage: (value: string) => void;
 }
 
-function useRefreshView({
-  loadDates,
-  loadItems,
-  setIsBusy,
-  setErrorMessage,
-}: RefreshViewOptions) {
+function useRefreshView({ loadDates, loadItems, setIsBusy, setErrorMessage }: RefreshViewOptions) {
   return useCallback(async () => {
     setIsBusy(true);
     setErrorMessage("");
@@ -116,15 +113,25 @@ function useRefreshView({
   }, [loadDates, loadItems, setIsBusy, setErrorMessage]);
 }
 
-function useInitialMonitorStatus(
-  setMonitorEnabled: (value: boolean) => void,
-  setErrorMessage: (value: string) => void,
-) {
+interface InitialStatusOptions {
+  setMonitorEnabled: (value: boolean) => void;
+  setDesktopSettings: (value: DesktopSettings) => void;
+  setErrorMessage: (value: string) => void;
+}
+
+function useInitialStatus({
+  setMonitorEnabled,
+  setDesktopSettings,
+  setErrorMessage,
+}: InitialStatusOptions) {
   useEffect(() => {
-    void getClipboardMonitorStatus()
-      .then((status) => setMonitorEnabled(status.enabled))
+    void Promise.all([getClipboardMonitorStatus(), getDesktopSettings()])
+      .then(([monitorStatus, desktopSettings]) => {
+        setMonitorEnabled(monitorStatus.enabled);
+        setDesktopSettings(desktopSettings);
+      })
       .catch((error: unknown) => setErrorMessage(String(error)));
-  }, [setMonitorEnabled, setErrorMessage]);
+  }, [setMonitorEnabled, setDesktopSettings, setErrorMessage]);
 }
 
 function selectNextItemId(currentId: number | null, items: ClipboardItem[]) {
@@ -146,11 +153,13 @@ function createDateSelector(
   };
 }
 
-function createMonitorToggle(
-  monitorEnabled: boolean,
-  setMonitorEnabled: (value: boolean) => void,
-  setMessage: (value: string) => void,
-) {
+interface MonitorToggleOptions {
+  monitorEnabled: boolean;
+  setMonitorEnabled: (value: boolean) => void;
+  setMessage: (value: string) => void;
+}
+
+function createMonitorToggle({ monitorEnabled, setMonitorEnabled, setMessage }: MonitorToggleOptions) {
   return async () => {
     const status = await setClipboardMonitorEnabled(!monitorEnabled);
     setMonitorEnabled(status.enabled);
@@ -158,11 +167,13 @@ function createMonitorToggle(
   };
 }
 
-function createClearDate(
-  selectedDate: string,
-  refreshView: () => Promise<void>,
-  setMessage: (value: string) => void,
-) {
+interface ClearDateOptions {
+  selectedDate: string;
+  refreshView: () => Promise<void>;
+  setMessage: (value: string) => void;
+}
+
+function createClearDate({ selectedDate, refreshView, setMessage }: ClearDateOptions) {
   return async () => {
     await clearClipboardItemsByDate(selectedDate);
     setMessage(`已清空 ${selectedDate} 的剪贴板记录。`);
@@ -185,3 +196,36 @@ function createDeleteItem(refreshView: () => Promise<void>, setMessage: (value: 
   };
 }
 
+interface SettingsUpdaterOptions {
+  setDesktopSettings: (value: DesktopSettings) => void;
+  setIsBusy: (value: boolean) => void;
+  setErrorMessage: (value: string) => void;
+  setMessage: (value: string) => void;
+  refreshView: () => Promise<void>;
+}
+
+function createSettingsUpdater(options: SettingsUpdaterOptions) {
+  return async (settings: DesktopSettings) => {
+    options.setIsBusy(true);
+    options.setErrorMessage("");
+    try {
+      options.setDesktopSettings(await updateDesktopSettings(settings));
+      options.setMessage("桌面设置已保存，并已应用保留策略。");
+      await options.refreshView();
+    } catch (error) {
+      options.setErrorMessage(String(error));
+    } finally {
+      options.setIsBusy(false);
+    }
+  };
+}
+
+function createHideWindow(setErrorMessage: (value: string) => void) {
+  return async () => {
+    try {
+      await hideMainWindow();
+    } catch (error) {
+      setErrorMessage(String(error));
+    }
+  };
+}
