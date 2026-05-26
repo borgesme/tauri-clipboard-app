@@ -45,6 +45,7 @@ pub struct DesktopSettings {
     pub autostart_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub storage_dir: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -53,10 +54,12 @@ pub struct DesktopSettingsUpdate {
     pub autostart_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub storage_dir: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct StoredSettings {
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub storage_dir: String,
 }

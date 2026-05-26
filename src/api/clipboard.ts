@@ -63,6 +63,10 @@ export function showMainWindow(): Promise<void> {
   return invoke("show_main_window");
 }
 
+export function onOpenSettings(handler: () => void): Promise<UnlistenFn> {
+  return listen("app:open-settings", () => handler());
+}
+
 export function onClipboardItemCreated(
   handler: (event: ClipboardChangeEvent) => void,
 ): Promise<UnlistenFn> {

@@ -1,4 +1,4 @@
-﻿export interface ClipboardItem {
+export interface ClipboardItem {
   id: number;
   contentType: "text";
   content: string;
@@ -31,6 +31,7 @@ export interface DesktopSettings {
   autostartEnabled: boolean;
   retentionDays: number;
   maxRecordCount: number;
+  storageDir: string;
 }
 
 export type DesktopSettingsUpdate = DesktopSettings;

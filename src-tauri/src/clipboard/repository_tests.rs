@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::repository::{
     get_item_by_id, init_database, list_date_groups, list_items_by_date, search_items,
-    cleanup_items, get_i64_setting, set_setting, soft_delete_item, soft_delete_items_by_date,
-    upsert_text_item,
+    cleanup_items, get_i64_setting, get_string_setting, set_setting, soft_delete_item,
+    soft_delete_items_by_date, upsert_text_item,
 };
 
 fn temp_database_path(name: &str) -> std::path::PathBuf {
@@ -111,9 +111,12 @@ fn settings_default_and_update_roundtrip() {
     init_database(&path).unwrap();
 
     assert_eq!(30, get_i64_setting(&path, "retention_days", 30).unwrap());
+    assert_eq!("", get_string_setting(&path, "storage_dir", "").unwrap());
     set_setting(&path, "retention_days", "7", "2026-05-26T10:00:00+08:00").unwrap();
+    set_setting(&path, "storage_dir", "D:/clip", "2026-05-26T10:00:00+08:00").unwrap();
 
     assert_eq!(7, get_i64_setting(&path, "retention_days", 30).unwrap());
+    assert_eq!("D:/clip", get_string_setting(&path, "storage_dir", "").unwrap());
 }
 
 #[test]

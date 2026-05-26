@@ -2,15 +2,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Pause, Play } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 interface DateSidebarProps {
   dates: ClipboardDateGroup[];
   selectedDate: string;
   today: string;
-  monitorEnabled: boolean;
   onDateSelect: (date: string) => void;
-  onMonitorToggle: () => void;
 }
 
 export function DateSidebar(props: DateSidebarProps) {
@@ -18,7 +16,6 @@ export function DateSidebar(props: DateSidebarProps) {
     <Card className="min-h-0 gap-4 overflow-hidden border-border/70 bg-card/90 shadow-xl backdrop-blur">
       <SidebarHeader />
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-        <MonitorButton enabled={props.monitorEnabled} onToggle={props.onMonitorToggle} />
         <TodayButton {...props} />
         <DateList {...props} />
       </CardContent>
@@ -35,19 +32,6 @@ function SidebarHeader() {
         剪贴板工具箱
       </CardTitle>
     </CardHeader>
-  );
-}
-
-function MonitorButton({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
-  return (
-    <Button
-      className="h-auto justify-between rounded-xl px-3 py-3 text-left"
-      variant={enabled ? "secondary" : "destructive"}
-      onClick={onToggle}
-    >
-      <span>{enabled ? "监听中" : "已暂停"}</span>
-      {enabled ? <Pause className="size-4" /> : <Play className="size-4" />}
-    </Button>
   );
 }
 

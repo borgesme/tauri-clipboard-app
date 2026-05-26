@@ -9,3 +9,5 @@ pub mod settings;
 
 #[cfg(test)]
 mod repository_tests;
+#[cfg(test)]
+mod service_tests;

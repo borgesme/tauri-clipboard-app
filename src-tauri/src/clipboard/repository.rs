@@ -1,4 +1,4 @@
-﻿use std::path::Path;
+use std::path::Path;
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
@@ -142,6 +142,14 @@ pub fn get_i64_setting(path: &Path, key: &str, default: i64) -> Result<i64, Clip
         .query_row("SELECT value FROM app_settings WHERE key = ?1", [key], |row| row.get(0))
         .optional()?;
     Ok(value.and_then(|text: String| text.parse().ok()).unwrap_or(default))
+}
+
+pub fn get_string_setting(path: &Path, key: &str, default: &str) -> Result<String, ClipboardError> {
+    let connection = Connection::open(path)?;
+    let value = connection
+        .query_row("SELECT value FROM app_settings WHERE key = ?1", [key], |row| row.get(0))
+        .optional()?;
+    Ok(value.unwrap_or_else(|| default.to_string()))
 }
 
 pub fn set_setting(path: &Path, key: &str, value: &str, now: &str) -> Result<(), ClipboardError> {
