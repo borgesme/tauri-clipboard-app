@@ -55,6 +55,10 @@ impl ClipboardService {
         if content.is_empty() {
             return Ok(None);
         }
+        let stored_settings = settings::get_stored_settings(&self.default_database_path)?;
+        if settings::should_ignore_content(&content, &stored_settings) {
+            return Ok(None);
+        }
         let hash = content_hash(&content);
         if self.should_skip_hash(&hash)? {
             return Ok(None);
@@ -122,6 +126,8 @@ impl ClipboardService {
             autostart_enabled,
             retention_days: stored.retention_days,
             max_record_count: stored.max_record_count,
+            max_text_length: stored.max_text_length,
+            ignore_password_like_text: stored.ignore_password_like_text,
             storage_dir: stored.storage_dir,
         })
     }
@@ -138,6 +144,8 @@ impl ClipboardService {
             &self.default_database_path,
             update.retention_days,
             update.max_record_count,
+            update.max_text_length,
+            update.ignore_password_like_text,
             &storage_dir,
         )?;
         self.set_active_database_path(database_path.clone())?;
@@ -146,6 +154,8 @@ impl ClipboardService {
             autostart_enabled,
             retention_days: stored.retention_days,
             max_record_count: stored.max_record_count,
+            max_text_length: stored.max_text_length,
+            ignore_password_like_text: stored.ignore_password_like_text,
             storage_dir: stored.storage_dir,
         })
     }

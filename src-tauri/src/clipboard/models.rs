@@ -45,6 +45,8 @@ pub struct DesktopSettings {
     pub autostart_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub max_text_length: i64,
+    pub ignore_password_like_text: bool,
     pub storage_dir: String,
 }
 
@@ -54,6 +56,8 @@ pub struct DesktopSettingsUpdate {
     pub autostart_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub max_text_length: i64,
+    pub ignore_password_like_text: bool,
     pub storage_dir: String,
 }
 
@@ -61,5 +65,7 @@ pub struct DesktopSettingsUpdate {
 pub struct StoredSettings {
     pub retention_days: i64,
     pub max_record_count: i64,
+    pub max_text_length: i64,
+    pub ignore_password_like_text: bool,
     pub storage_dir: String,
 }

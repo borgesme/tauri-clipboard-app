@@ -31,6 +31,8 @@ export interface DesktopSettings {
   autostartEnabled: boolean;
   retentionDays: number;
   maxRecordCount: number;
+  maxTextLength: number;
+  ignorePasswordLikeText: boolean;
   storageDir: string;
 }
 

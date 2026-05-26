@@ -75,6 +75,13 @@ function SettingsForm(props: SettingsFormProps) {
         value={props.settings.maxRecordCount}
         onChange={(maxRecordCount) => props.onSettingsChange({ ...props.settings, maxRecordCount })}
       />
+      <NumberSetting
+        label="单条文本上限"
+        min={1}
+        value={props.settings.maxTextLength}
+        onChange={(maxTextLength) => props.onSettingsChange({ ...props.settings, maxTextLength })}
+      />
+      <SecretFilterToggle {...props} />
       <StorageDirSetting
         isBusy={props.isBusy}
         storageDir={props.settings.storageDir}
@@ -96,6 +103,18 @@ function MonitorToggle({ monitorEnabled, isBusy, onMonitorToggle }: SettingsForm
       disabled={isBusy}
       label="剪贴板监听"
       onChange={onMonitorToggle}
+    />
+  );
+}
+
+function SecretFilterToggle({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+  return (
+    <SwitchSetting
+      checked={settings.ignorePasswordLikeText}
+      description="跳过疑似 JWT、API Key、长 token"
+      disabled={isBusy}
+      label="敏感内容过滤"
+      onChange={(ignorePasswordLikeText) => onSettingsChange({ ...settings, ignorePasswordLikeText })}
     />
   );
 }

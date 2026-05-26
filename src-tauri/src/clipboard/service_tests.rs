@@ -26,6 +26,8 @@ fn desktop_update(storage_dir: String) -> DesktopSettingsUpdate {
         autostart_enabled: false,
         retention_days: 30,
         max_record_count: 1000,
+        max_text_length: 20_000,
+        ignore_password_like_text: false,
         storage_dir,
     }
 }
@@ -58,7 +60,7 @@ fn startup_uses_storage_dir_from_default_database() {
     let custom_dir_text = custom_dir.to_string_lossy().into_owned();
     let custom_path = custom_dir.join("clipboard.sqlite");
     repository::init_database(&default_path).unwrap();
-    settings::update_stored_settings(&default_path, 15, 50, &custom_dir_text).unwrap();
+    settings::update_stored_settings(&default_path, 15, 50, 1024, true, &custom_dir_text).unwrap();
 
     let service = ClipboardService::new(default_path).unwrap();
     repository::upsert_text_item(&custom_path, "custom", "hash-1", "2026-05-26T11:00:00+08:00")
@@ -67,6 +69,23 @@ fn startup_uses_storage_dir_from_default_database() {
 
     assert_eq!(15, settings.retention_days);
     assert_eq!(50, settings.max_record_count);
+    assert_eq!(1024, settings.max_text_length);
+    assert!(settings.ignore_password_like_text);
     assert_eq!(custom_dir_text, settings.storage_dir);
     assert_eq!(1, service.search_items("custom").unwrap().len());
+}
+
+#[test]
+fn content_filters_respect_length_and_secret_settings() {
+    let settings = super::models::StoredSettings {
+        retention_days: 30,
+        max_record_count: 1000,
+        max_text_length: 5,
+        ignore_password_like_text: true,
+        storage_dir: String::new(),
+    };
+
+    assert!(super::settings::should_ignore_content("123456", &settings));
+    assert!(super::settings::should_ignore_content("abcDEF1234567890", &settings));
+    assert!(!super::settings::should_ignore_content("hello", &settings));
 }
