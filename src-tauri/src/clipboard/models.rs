@@ -25,3 +25,16 @@ pub struct ClipboardDateGroup {
 pub struct ClipboardChangeEvent {
     pub item: ClipboardItem,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardDeletedEvent {
+    pub id: Option<i64>,
+    pub date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardMonitorStatus {
+    pub enabled: bool,
+}

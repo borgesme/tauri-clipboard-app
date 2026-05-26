@@ -1,8 +1,9 @@
 ﻿use std::sync::Arc;
 
 use clipboard::commands::{
-    copy_clipboard_item, delete_clipboard_item, get_clipboard_item, list_clipboard_dates,
-    list_clipboard_items, ClipboardState,
+    clear_clipboard_items_by_date, copy_clipboard_item, delete_clipboard_item,
+    get_clipboard_item, get_clipboard_monitor_status, list_clipboard_dates, list_clipboard_items,
+    search_clipboard_items, set_clipboard_monitor_enabled, ClipboardState,
 };
 use clipboard::monitor::start_clipboard_monitor;
 use clipboard::service::ClipboardService;
@@ -26,9 +27,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_clipboard_dates,
             list_clipboard_items,
+            search_clipboard_items,
             get_clipboard_item,
             copy_clipboard_item,
-            delete_clipboard_item
+            delete_clipboard_item,
+            clear_clipboard_items_by_date,
+            set_clipboard_monitor_enabled,
+            get_clipboard_monitor_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

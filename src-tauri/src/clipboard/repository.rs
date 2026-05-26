@@ -44,9 +44,7 @@ pub fn upsert_text_item(
     now: &str,
 ) -> Result<ClipboardItem, ClipboardError> {
     let connection = Connection::open(path)?;
-    let existing_id = find_active_id_by_hash(&connection, content_hash)?;
-
-    if let Some(id) = existing_id {
+    if let Some(id) = find_active_id_by_hash(&connection, content_hash)? {
         connection.execute(
             "UPDATE clipboard_items
              SET last_copied_at = ?1, copy_count = copy_count + 1
@@ -98,6 +96,25 @@ pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>,
     rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
 }
 
+pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
+    let trimmed = keyword.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let connection = Connection::open(path)?;
+    let pattern = format!("%{trimmed}%");
+    let mut statement = connection.prepare(
+        "SELECT id, content_type, content, preview, content_hash, created_at, last_copied_at, copy_count
+         FROM clipboard_items
+         WHERE deleted_at IS NULL AND (content LIKE ?1 OR preview LIKE ?1)
+         ORDER BY last_copied_at DESC, id DESC",
+    )?;
+    let rows = statement.query_map([pattern], map_item)?;
+
+    rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
+}
+
 pub fn get_item_by_id(path: &Path, id: i64) -> Result<ClipboardItem, ClipboardError> {
     let connection = Connection::open(path)?;
     get_item_by_id_with_connection(&connection, id)
@@ -115,6 +132,22 @@ pub fn soft_delete_item(path: &Path, id: i64, now: &str) -> Result<(), Clipboard
     }
 
     Ok(())
+}
+
+pub fn soft_delete_items_by_date(
+    path: &Path,
+    date: &str,
+    now: &str,
+) -> Result<usize, ClipboardError> {
+    let connection = Connection::open(path)?;
+    let changed = connection.execute(
+        "UPDATE clipboard_items
+         SET deleted_at = ?1
+         WHERE substr(created_at, 1, 10) = ?2 AND deleted_at IS NULL",
+        params![now, date],
+    )?;
+
+    Ok(changed)
 }
 
 fn find_active_id_by_hash(
@@ -159,66 +192,4 @@ fn map_item(row: &Row<'_>) -> rusqlite::Result<ClipboardItem> {
         last_copied_at: row.get(6)?,
         copy_count: row.get(7)?,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    use super::{
-        get_item_by_id, init_database, list_date_groups, list_items_by_date, soft_delete_item,
-        upsert_text_item,
-    };
-
-    fn temp_database_path(name: &str) -> std::path::PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("clipboard-{name}-{unique}.sqlite"))
-    }
-
-    #[test]
-    fn inserts_and_lists_items_by_date() {
-        let path = temp_database_path("insert-list");
-        init_database(&path).unwrap();
-
-        let item = upsert_text_item(&path, "hello", "hash-1", "2026-05-26T10:00:00+08:00")
-            .unwrap();
-        let groups = list_date_groups(&path).unwrap();
-        let items = list_items_by_date(&path, "2026-05-26").unwrap();
-
-        assert_eq!("hello", item.content);
-        assert_eq!("2026-05-26", groups[0].date);
-        assert_eq!(1, groups[0].count);
-        assert_eq!(item.id, items[0].id);
-    }
-
-    #[test]
-    fn deduplicates_active_hashes() {
-        let path = temp_database_path("dedupe");
-        init_database(&path).unwrap();
-
-        let first = upsert_text_item(&path, "hello", "hash-1", "2026-05-26T10:00:00+08:00")
-            .unwrap();
-        let second = upsert_text_item(&path, "hello", "hash-1", "2026-05-26T10:01:00+08:00")
-            .unwrap();
-
-        assert_eq!(first.id, second.id);
-        assert_eq!(2, second.copy_count);
-        assert_eq!("2026-05-26T10:01:00+08:00", second.last_copied_at);
-    }
-
-    #[test]
-    fn soft_deleted_items_are_hidden() {
-        let path = temp_database_path("delete");
-        init_database(&path).unwrap();
-
-        let item = upsert_text_item(&path, "secret", "hash-2", "2026-05-26T10:00:00+08:00")
-            .unwrap();
-        soft_delete_item(&path, item.id, "2026-05-26T10:02:00+08:00").unwrap();
-
-        assert!(get_item_by_id(&path, item.id).is_err());
-        assert!(list_items_by_date(&path, "2026-05-26").unwrap().is_empty());
-    }
 }

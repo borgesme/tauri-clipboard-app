@@ -13,8 +13,13 @@ pub fn start_clipboard_monitor(app_handle: AppHandle, service: Arc<ClipboardServ
     thread::spawn(move || loop {
         match service.capture_current_clipboard() {
             Ok(Some(item)) => {
+                let event_name = if item.copy_count > 1 {
+                    "clipboard:item-updated"
+                } else {
+                    "clipboard:item-created"
+                };
                 let event = ClipboardChangeEvent { item };
-                if let Err(error) = app_handle.emit("clipboard:item-created", event) {
+                if let Err(error) = app_handle.emit(event_name, event) {
                     eprintln!("failed to emit clipboard event: {error}");
                 }
             }

@@ -17,3 +17,12 @@ export interface ClipboardDateGroup {
 export interface ClipboardChangeEvent {
   item: ClipboardItem;
 }
+
+export interface ClipboardDeletedEvent {
+  id?: number | null;
+  date?: string | null;
+}
+
+export interface ClipboardMonitorStatus {
+  enabled: boolean;
+}

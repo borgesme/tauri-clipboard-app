@@ -5,3 +5,6 @@ pub mod models;
 pub mod monitor;
 pub mod repository;
 pub mod service;
+
+#[cfg(test)]
+mod repository_tests;
