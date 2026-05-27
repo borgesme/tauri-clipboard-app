@@ -1,12 +1,11 @@
-import { CalendarDays, Copy, Send, Settings, WandSparkles, X } from "lucide-react";
+import { Copy, Send, Settings, WandSparkles, X } from "lucide-react";
 
+import { ClipStudioCalendarPanel } from "@/components/clipboard/ClipStudioCalendarPanel";
 import { DesktopSettingsPanel } from "@/components/clipboard/DesktopSettingsPanel";
 import { Kbd } from "@/components/clipboard/ClipStudioLayout";
 import {
   type PanelTab,
   type ToolboxAction,
-  countRecords,
-  countTodayRecords,
   createToolboxResult,
 } from "@/components/clipboard/clipStudioHelpers";
 import { Button } from "@/components/ui/button";
@@ -104,34 +103,7 @@ function getTabLabel(tab: PanelTab) {
 }
 
 function CalendarPanel(props: ClipStudioPanelProps) {
-  return (
-    <section className="clip-panel-view">
-      <InfoCard icon={<CalendarDays className="size-4" />} title="日期看板">
-        保留原来的日期浏览方式。点击有记录日期后，中间列表会切换到当天记录。
-      </InfoCard>
-      <div className="panel-card">
-        <div className="date-summary">
-          <DateStat label="今日记录" value={countTodayRecords(props.dates, props.today)} />
-          <DateStat label="高频复用" value={props.frequentCount} />
-          <DateStat label="总记录" value={countRecords(props.dates)} />
-        </div>
-      </div>
-      <div className="panel-card calendar-list">
-        {props.dates.length === 0 ? <div className="mini-empty">暂无日期分组</div> : null}
-        {props.dates.map((group) => (
-          <button
-            className={cn("date-button", props.selectedDate === group.date && "active")}
-            key={group.date}
-            type="button"
-            onClick={() => props.onDateSelect(group.date)}
-          >
-            <span>{group.date}</span>
-            <span>{group.count} 条</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
+  return <ClipStudioCalendarPanel {...props} />;
 }
 
 function ToolboxPanel(props: ClipStudioPanelProps) {
@@ -199,15 +171,6 @@ function InfoCard({ children, icon, title }: { children: React.ReactNode; icon: 
         {title}
       </h2>
       <p>{children}</p>
-    </div>
-  );
-}
-
-function DateStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="date-stat">
-      <b>{value}</b>
-      <span>{label}</span>
     </div>
   );
 }
