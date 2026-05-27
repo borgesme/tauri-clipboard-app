@@ -25,15 +25,21 @@ pub fn setup_desktop(app: &mut App) -> tauri::Result<()> {
 
 pub fn show_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
     if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
-        window.set_focus().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .show()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .set_focus()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
     }
     Ok(())
 }
 
 pub fn hide_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
     if let Some(window) = app_handle.get_webview_window("main") {
-        window.hide().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .hide()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
     }
     Ok(())
 }
@@ -82,7 +88,8 @@ fn setup_app_menu(app: &mut App) -> tauri::Result<()> {
 fn create_app_menu(app: &App) -> tauri::Result<Menu<tauri::Wry>> {
     let restore = MenuItem::with_id(app, MENU_SYSTEM_RESTORE, "还原", true, None::<&str>)?;
     let move_window = MenuItem::with_id(app, MENU_SYSTEM_MOVE, "移动", true, None::<&str>)?;
-    let resize_window = MenuItem::with_id(app, MENU_SYSTEM_SIZE, "大小", true, None::<&str>)?;
+    let resize_window =
+        MenuItem::with_id(app, MENU_SYSTEM_SIZE, "恢复默认大小", true, None::<&str>)?;
     let system_menu = Submenu::with_items(
         app,
         "系统",
@@ -114,17 +121,27 @@ fn handle_app_menu(app: &AppHandle, event: MenuEvent) {
 
 fn restore_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
     if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
-        window.unmaximize().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
-        window.set_focus().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .show()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .unmaximize()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .set_focus()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
     }
     Ok(())
 }
 
 fn move_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
     if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
-        window.start_dragging().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .show()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .start_dragging()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
     }
     Ok(())
 }
@@ -132,8 +149,12 @@ fn move_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
 fn resize_main_window(app_handle: &AppHandle) -> Result<(), ClipboardError> {
     if let Some(window) = app_handle.get_webview_window("main") {
         let size = LogicalSize::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
-        window.set_size(size).map_err(|error| ClipboardError::Runtime(error.to_string()))?;
-        window.set_focus().map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .set_size(size)
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        window
+            .set_focus()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
     }
     Ok(())
 }

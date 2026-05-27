@@ -7,6 +7,7 @@ import type {
   ClipboardDeletedEvent,
   ClipboardItem,
   ClipboardMonitorStatus,
+  ClipboardSkippedEvent,
   DesktopSettings,
   DesktopSettingsUpdate,
 } from "@/types/clipboard";
@@ -39,6 +40,10 @@ export function clearClipboardItemsByDate(date: string): Promise<void> {
   return invoke("clear_clipboard_items_by_date", { date });
 }
 
+export function purgeDeletedClipboardItems(vacuum = false): Promise<number> {
+  return invoke("purge_deleted_clipboard_items", { vacuum });
+}
+
 export function setClipboardMonitorEnabled(enabled: boolean): Promise<ClipboardMonitorStatus> {
   return invoke("set_clipboard_monitor_enabled", { enabled });
 }
@@ -53,6 +58,10 @@ export function getDesktopSettings(): Promise<DesktopSettings> {
 
 export function updateDesktopSettings(settings: DesktopSettingsUpdate): Promise<DesktopSettings> {
   return invoke("update_desktop_settings", { settings });
+}
+
+export function validateStorageDir(storageDir: string): Promise<void> {
+  return invoke("validate_storage_dir", { storageDir });
 }
 
 export function hideMainWindow(): Promise<void> {
@@ -83,6 +92,12 @@ export function onClipboardItemDeleted(
   handler: (event: ClipboardDeletedEvent) => void,
 ): Promise<UnlistenFn> {
   return listen<ClipboardDeletedEvent>("clipboard:item-deleted", (event) => handler(event.payload));
+}
+
+export function onClipboardItemSkipped(
+  handler: (event: ClipboardSkippedEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<ClipboardSkippedEvent>("clipboard:item-skipped", (event) => handler(event.payload));
 }
 
 export function onClipboardMonitorStatusChanged(

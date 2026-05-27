@@ -13,6 +13,16 @@ pub struct ClipboardItem {
     pub copy_count: i64,
 }
 
+#[derive(Debug, Clone)]
+pub enum CaptureOutcome {
+    Item(ClipboardItem),
+    Skipped {
+        reason: ClipboardSkipReason,
+        content_length: i64,
+        max_text_length: i64,
+    },
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardDateGroup {
@@ -24,6 +34,25 @@ pub struct ClipboardDateGroup {
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardChangeEvent {
     pub item: ClipboardItem,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ClipboardSkipReason {
+    Empty,
+    MonitorDisabled,
+    TooLong,
+    SecretLike,
+    Duplicate,
+    AppWriteBack,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardSkippedEvent {
+    pub reason: ClipboardSkipReason,
+    pub content_length: i64,
+    pub max_text_length: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -43,10 +72,12 @@ pub struct ClipboardMonitorStatus {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopSettings {
     pub autostart_enabled: bool,
+    pub monitor_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
     pub max_text_length: i64,
     pub ignore_password_like_text: bool,
+    pub custom_secret_patterns: String,
     pub storage_dir: String,
 }
 
@@ -54,18 +85,22 @@ pub struct DesktopSettings {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopSettingsUpdate {
     pub autostart_enabled: bool,
+    pub monitor_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
     pub max_text_length: i64,
     pub ignore_password_like_text: bool,
+    pub custom_secret_patterns: String,
     pub storage_dir: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct StoredSettings {
+    pub monitor_enabled: bool,
     pub retention_days: i64,
     pub max_record_count: i64,
     pub max_text_length: i64,
     pub ignore_password_like_text: bool,
+    pub custom_secret_patterns: String,
     pub storage_dir: String,
 }

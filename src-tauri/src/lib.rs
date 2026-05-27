@@ -1,10 +1,11 @@
-﻿use std::sync::Arc;
+use std::sync::Arc;
 
 use clipboard::commands::{
-    clear_clipboard_items_by_date, copy_clipboard_item, delete_clipboard_item,
-    get_clipboard_item, get_clipboard_monitor_status, get_desktop_settings, hide_main_window,
-    list_clipboard_dates, list_clipboard_items, search_clipboard_items,
-    set_clipboard_monitor_enabled, show_main_window, update_desktop_settings, ClipboardState,
+    clear_clipboard_items_by_date, copy_clipboard_item, delete_clipboard_item, get_clipboard_item,
+    get_clipboard_monitor_status, get_desktop_settings, hide_main_window, list_clipboard_dates,
+    list_clipboard_items, purge_deleted_clipboard_items, search_clipboard_items,
+    set_clipboard_monitor_enabled, show_main_window, update_desktop_settings, validate_storage_dir,
+    ClipboardState,
 };
 use clipboard::monitor::start_clipboard_monitor;
 use clipboard::service::ClipboardService;
@@ -19,6 +20,7 @@ mod desktop;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
@@ -41,9 +43,11 @@ pub fn run() {
             copy_clipboard_item,
             delete_clipboard_item,
             clear_clipboard_items_by_date,
+            purge_deleted_clipboard_items,
             set_clipboard_monitor_enabled,
             get_clipboard_monitor_status,
             get_desktop_settings,
+            validate_storage_dir,
             update_desktop_settings,
             hide_main_window,
             show_main_window

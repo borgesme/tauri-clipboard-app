@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::models::DesktopSettingsUpdate;
+use super::models::{ClipboardSkipReason, DesktopSettingsUpdate};
 use super::repository;
 use super::service::ClipboardService;
 use super::settings;
@@ -24,12 +24,49 @@ fn temp_storage_dir(name: &str) -> std::path::PathBuf {
 fn desktop_update(storage_dir: String) -> DesktopSettingsUpdate {
     DesktopSettingsUpdate {
         autostart_enabled: false,
+        monitor_enabled: true,
         retention_days: 30,
         max_record_count: 1000,
         max_text_length: 20_000,
         ignore_password_like_text: false,
+        custom_secret_patterns: String::new(),
         storage_dir,
     }
+}
+
+fn stored_settings() -> super::models::StoredSettings {
+    super::models::StoredSettings {
+        monitor_enabled: true,
+        retention_days: 30,
+        max_record_count: 1000,
+        max_text_length: 20_000,
+        ignore_password_like_text: false,
+        custom_secret_patterns: String::new(),
+        storage_dir: String::new(),
+    }
+}
+
+#[test]
+fn monitor_state_defaults_to_enabled() {
+    let default_path = temp_database_path("monitor-default");
+    let service = ClipboardService::new(default_path).unwrap();
+    let settings = service.desktop_settings(false).unwrap();
+
+    assert!(settings.monitor_enabled);
+    assert!(service.monitor_status().unwrap().enabled);
+}
+
+#[test]
+fn monitor_state_persists_across_service_restart() {
+    let default_path = temp_database_path("monitor-persist");
+    let service = ClipboardService::new(default_path.clone()).unwrap();
+    service.set_monitor_enabled(false).unwrap();
+
+    let restarted_service = ClipboardService::new(default_path).unwrap();
+    let settings = restarted_service.desktop_settings(false).unwrap();
+
+    assert!(!settings.monitor_enabled);
+    assert!(!restarted_service.monitor_status().unwrap().enabled);
 }
 
 #[test]
@@ -40,13 +77,23 @@ fn update_settings_switches_to_custom_storage_database() {
     let custom_path = custom_dir.join("clipboard.sqlite");
     let service = ClipboardService::new(default_path.clone()).unwrap();
 
-    repository::upsert_text_item(&default_path, "default", "hash-1", "2026-05-26T10:00:00+08:00")
-        .unwrap();
+    repository::upsert_text_item(
+        &default_path,
+        "default",
+        "hash-1",
+        "2026-05-26T10:00:00+08:00",
+    )
+    .unwrap();
     let settings = service
         .update_desktop_settings(desktop_update(custom_dir_text.clone()), false)
         .unwrap();
-    repository::upsert_text_item(&custom_path, "custom", "hash-2", "2026-05-26T11:00:00+08:00")
-        .unwrap();
+    repository::upsert_text_item(
+        &custom_path,
+        "custom",
+        "hash-2",
+        "2026-05-26T11:00:00+08:00",
+    )
+    .unwrap();
 
     assert_eq!(custom_dir_text, settings.storage_dir);
     assert!(service.search_items("default").unwrap().is_empty());
@@ -60,11 +107,26 @@ fn startup_uses_storage_dir_from_default_database() {
     let custom_dir_text = custom_dir.to_string_lossy().into_owned();
     let custom_path = custom_dir.join("clipboard.sqlite");
     repository::init_database(&default_path).unwrap();
-    settings::update_stored_settings(&default_path, 15, 50, 1024, true, &custom_dir_text).unwrap();
+    settings::update_stored_settings(
+        &default_path,
+        false,
+        15,
+        50,
+        1024,
+        true,
+        "",
+        &custom_dir_text,
+    )
+    .unwrap();
 
     let service = ClipboardService::new(default_path).unwrap();
-    repository::upsert_text_item(&custom_path, "custom", "hash-1", "2026-05-26T11:00:00+08:00")
-        .unwrap();
+    repository::upsert_text_item(
+        &custom_path,
+        "custom",
+        "hash-1",
+        "2026-05-26T11:00:00+08:00",
+    )
+    .unwrap();
     let settings = service.desktop_settings(false).unwrap();
 
     assert_eq!(15, settings.retention_days);
@@ -78,14 +140,100 @@ fn startup_uses_storage_dir_from_default_database() {
 #[test]
 fn content_filters_respect_length_and_secret_settings() {
     let settings = super::models::StoredSettings {
-        retention_days: 30,
-        max_record_count: 1000,
         max_text_length: 5,
         ignore_password_like_text: true,
-        storage_dir: String::new(),
+        ..stored_settings()
     };
 
-    assert!(super::settings::should_ignore_content("123456", &settings));
-    assert!(super::settings::should_ignore_content("abcDEF1234567890", &settings));
-    assert!(!super::settings::should_ignore_content("hello", &settings));
+    assert!(super::settings::content_skip_reason("123456", &settings).is_some());
+    assert!(super::settings::content_skip_reason("abcDEF1234567890", &settings).is_some());
+    assert!(super::settings::content_skip_reason("hello", &settings).is_none());
+}
+
+#[test]
+fn content_skip_reason_distinguishes_too_long_and_secret_like() {
+    let settings = super::models::StoredSettings {
+        max_text_length: 5,
+        ignore_password_like_text: true,
+        ..stored_settings()
+    };
+
+    assert_eq!(
+        Some(ClipboardSkipReason::TooLong),
+        super::settings::content_skip_reason("123456", &settings),
+    );
+    assert_eq!(
+        Some(ClipboardSkipReason::SecretLike),
+        super::settings::content_skip_reason(
+            "abcDEFGH1234567890",
+            &StoredSettingsForSecret::from(&settings)
+        ),
+    );
+    assert_eq!(
+        None,
+        super::settings::content_skip_reason("hello", &settings)
+    );
+}
+
+struct StoredSettingsForSecret;
+
+impl StoredSettingsForSecret {
+    fn from(settings: &super::models::StoredSettings) -> super::models::StoredSettings {
+        super::models::StoredSettings {
+            max_text_length: 20_000,
+            ..settings.clone()
+        }
+    }
+}
+
+#[test]
+fn custom_secret_pattern_skips_matching_content() {
+    let settings = super::models::StoredSettings {
+        ignore_password_like_text: true,
+        custom_secret_patterns: "corp_[0-9]{4}".to_string(),
+        ..stored_settings()
+    };
+
+    assert_eq!(
+        Some(ClipboardSkipReason::SecretLike),
+        super::settings::content_skip_reason("token=corp_1234", &settings),
+    );
+}
+
+#[test]
+fn custom_secret_pattern_keeps_non_matching_content() {
+    let settings = super::models::StoredSettings {
+        ignore_password_like_text: true,
+        custom_secret_patterns: "corp_[0-9]{4}".to_string(),
+        ..stored_settings()
+    };
+
+    assert_eq!(
+        None,
+        super::settings::content_skip_reason("plain project note", &settings),
+    );
+}
+
+#[test]
+fn custom_secret_pattern_requires_secret_filter_enabled() {
+    let settings = super::models::StoredSettings {
+        ignore_password_like_text: false,
+        custom_secret_patterns: "corp_[0-9]{4}".to_string(),
+        ..stored_settings()
+    };
+
+    assert_eq!(
+        None,
+        super::settings::content_skip_reason("token=corp_1234", &settings),
+    );
+}
+
+#[test]
+fn invalid_custom_secret_pattern_is_rejected() {
+    let path = temp_database_path("invalid-pattern");
+    repository::init_database(&path).unwrap();
+
+    let result = settings::update_stored_settings(&path, true, 30, 1000, 20_000, false, "[", "");
+
+    assert!(result.is_err());
 }

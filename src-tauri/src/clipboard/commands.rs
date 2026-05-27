@@ -1,4 +1,4 @@
-﻿use std::sync::Arc;
+use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
@@ -11,6 +11,7 @@ use super::models::{
     DesktopSettings, DesktopSettingsUpdate,
 };
 use super::service::ClipboardService;
+use super::settings;
 
 pub struct ClipboardState(pub Arc<ClipboardService>);
 
@@ -76,6 +77,17 @@ pub fn clear_clipboard_items_by_date(
 }
 
 #[tauri::command]
+pub fn purge_deleted_clipboard_items(
+    app_handle: AppHandle,
+    vacuum: bool,
+    state: State<'_, ClipboardState>,
+) -> Result<usize, ClipboardError> {
+    let removed = state.0.purge_deleted_items(vacuum)?;
+    emit_deleted(&app_handle, None, None);
+    Ok(removed)
+}
+
+#[tauri::command]
 pub fn set_clipboard_monitor_enabled(
     app_handle: AppHandle,
     enabled: bool,
@@ -100,6 +112,11 @@ pub fn get_desktop_settings(
 ) -> Result<DesktopSettings, ClipboardError> {
     let autostart_enabled = autostart_enabled(&app_handle)?;
     state.0.desktop_settings(autostart_enabled)
+}
+
+#[tauri::command]
+pub fn validate_storage_dir(storage_dir: String) -> Result<(), ClipboardError> {
+    settings::validate_storage_dir(&storage_dir)
 }
 
 #[tauri::command]
@@ -132,7 +149,11 @@ fn autostart_enabled(app_handle: &AppHandle) -> Result<bool, ClipboardError> {
 
 fn set_autostart_enabled(app_handle: &AppHandle, enabled: bool) -> Result<(), ClipboardError> {
     let autostart = app_handle.autolaunch();
-    let result = if enabled { autostart.enable() } else { autostart.disable() };
+    let result = if enabled {
+        autostart.enable()
+    } else {
+        autostart.disable()
+    };
     result.map_err(|error| ClipboardError::Runtime(error.to_string()))
 }
 

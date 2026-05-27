@@ -72,7 +72,8 @@ pub fn list_date_groups(path: &Path) -> Result<Vec<ClipboardDateGroup>, Clipboar
             count: row.get(1)?,
         })
     })?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(ClipboardError::from)
 }
 
 pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
@@ -84,7 +85,8 @@ pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>,
          ORDER BY last_copied_at DESC, id DESC",
     )?;
     let rows = statement.query_map([date], map_item)?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(ClipboardError::from)
 }
 
 pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
@@ -101,7 +103,8 @@ pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, Cl
          ORDER BY last_copied_at DESC, id DESC",
     )?;
     let rows = statement.query_map([pattern], map_item)?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(ClipboardError::from)
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(ClipboardError::from)
 }
 
 pub fn get_item_by_id(path: &Path, id: i64) -> Result<ClipboardItem, ClipboardError> {
@@ -139,15 +142,25 @@ pub fn soft_delete_items_by_date(
 pub fn get_i64_setting(path: &Path, key: &str, default: i64) -> Result<i64, ClipboardError> {
     let connection = Connection::open(path)?;
     let value = connection
-        .query_row("SELECT value FROM app_settings WHERE key = ?1", [key], |row| row.get(0))
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            [key],
+            |row| row.get(0),
+        )
         .optional()?;
-    Ok(value.and_then(|text: String| text.parse().ok()).unwrap_or(default))
+    Ok(value
+        .and_then(|text: String| text.parse().ok())
+        .unwrap_or(default))
 }
 
 pub fn get_string_setting(path: &Path, key: &str, default: &str) -> Result<String, ClipboardError> {
     let connection = Connection::open(path)?;
     let value = connection
-        .query_row("SELECT value FROM app_settings WHERE key = ?1", [key], |row| row.get(0))
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            [key],
+            |row| row.get(0),
+        )
         .optional()?;
     Ok(value.unwrap_or_else(|| default.to_string()))
 }
@@ -195,12 +208,23 @@ fn insert_text_item(
         "INSERT INTO clipboard_items
          (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
-        params![CONTENT_TYPE_TEXT, content, preview(content), content_hash, now, now],
+        params![
+            CONTENT_TYPE_TEXT,
+            content,
+            preview(content),
+            content_hash,
+            now,
+            now
+        ],
     )?;
     Ok(())
 }
 
-fn cleanup_by_date(connection: &Connection, cutoff_date: &str, now: &str) -> Result<usize, ClipboardError> {
+fn cleanup_by_date(
+    connection: &Connection,
+    cutoff_date: &str,
+    now: &str,
+) -> Result<usize, ClipboardError> {
     connection
         .execute(
             "UPDATE clipboard_items

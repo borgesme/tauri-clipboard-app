@@ -49,10 +49,9 @@ function SettingsOverlay({
         </div>
         <DesktopSettingsPanel
           settings={workspace.desktopSettings}
-          monitorEnabled={workspace.monitorEnabled}
           isBusy={workspace.isBusy}
-          onMonitorToggle={() => void workspace.toggleMonitor()}
           onSettingsChange={(settings) => void workspace.updateSettings(settings)}
+          onPurgeDeletedItems={() => void workspace.purgeDeletedItems()}
           onHideWindow={() => void workspace.hideWindow()}
         />
       </div>

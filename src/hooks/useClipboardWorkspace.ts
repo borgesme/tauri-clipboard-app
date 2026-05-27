@@ -9,6 +9,7 @@ import {
   hideMainWindow,
   listClipboardDates,
   listClipboardItems,
+  purgeDeletedClipboardItems,
   searchClipboardItems,
   setClipboardMonitorEnabled,
   updateDesktopSettings,
@@ -36,7 +37,13 @@ export function useClipboardWorkspace() {
 
   useInitialStatus({ setMonitorEnabled, setDesktopSettings, setErrorMessage });
   useEffect(() => void refreshView(), [refreshView]);
-  useClipboardEvents({ refreshView, setMessage, setErrorMessage, setMonitorEnabled });
+  useClipboardEvents({
+    refreshView,
+    setMessage,
+    setErrorMessage,
+    setMonitorEnabled,
+    setDesktopSettings,
+  });
 
   return {
     dates,
@@ -52,11 +59,29 @@ export function useClipboardWorkspace() {
     setSearchTerm,
     setSelectedItemId,
     selectDate: createDateSelector(setSelectedDate, setSearchTerm, setMessage),
-    toggleMonitor: createMonitorToggle({ monitorEnabled, setMonitorEnabled, setMessage }),
+    toggleMonitor: createMonitorToggle({
+      monitorEnabled,
+      setMonitorEnabled,
+      setDesktopSettings,
+      setMessage,
+    }),
     clearDate: createClearDate({ selectedDate, refreshView, setMessage }),
     copyItem: createCopyItem(setMessage),
     deleteItem: createDeleteItem(refreshView, setMessage),
-    updateSettings: createSettingsUpdater({ setDesktopSettings, setIsBusy, setErrorMessage, setMessage, refreshView }),
+    updateSettings: createSettingsUpdater({
+      setDesktopSettings,
+      setMonitorEnabled,
+      setIsBusy,
+      setErrorMessage,
+      setMessage,
+      refreshView,
+    }),
+    purgeDeletedItems: createDeletedItemsPurger({
+      refreshView,
+      setIsBusy,
+      setErrorMessage,
+      setMessage,
+    }),
     hideWindow: createHideWindow(setErrorMessage),
   };
 }
@@ -127,7 +152,7 @@ function useInitialStatus({
   useEffect(() => {
     void Promise.all([getClipboardMonitorStatus(), getDesktopSettings()])
       .then(([monitorStatus, desktopSettings]) => {
-        setMonitorEnabled(monitorStatus.enabled);
+        setMonitorEnabled(desktopSettings.monitorEnabled && monitorStatus.enabled);
         setDesktopSettings(desktopSettings);
       })
       .catch((error: unknown) => setErrorMessage(String(error)));
@@ -156,14 +181,16 @@ function createDateSelector(
 interface MonitorToggleOptions {
   monitorEnabled: boolean;
   setMonitorEnabled: (value: boolean) => void;
+  setDesktopSettings: React.Dispatch<React.SetStateAction<DesktopSettings | null>>;
   setMessage: (value: string) => void;
 }
 
-function createMonitorToggle({ monitorEnabled, setMonitorEnabled, setMessage }: MonitorToggleOptions) {
+function createMonitorToggle(options: MonitorToggleOptions) {
   return async () => {
-    const status = await setClipboardMonitorEnabled(!monitorEnabled);
-    setMonitorEnabled(status.enabled);
-    setMessage(status.enabled ? "已恢复剪贴板监听。" : "已暂停剪贴板监听。");
+    const status = await setClipboardMonitorEnabled(!options.monitorEnabled);
+    options.setMonitorEnabled(status.enabled);
+    options.setDesktopSettings((settings) => settings ? { ...settings, monitorEnabled: status.enabled } : settings);
+    options.setMessage(status.enabled ? "已恢复剪贴板监听。" : "已暂停剪贴板监听。");
   };
 }
 
@@ -198,6 +225,7 @@ function createDeleteItem(refreshView: () => Promise<void>, setMessage: (value: 
 
 interface SettingsUpdaterOptions {
   setDesktopSettings: (value: DesktopSettings) => void;
+  setMonitorEnabled: (value: boolean) => void;
   setIsBusy: (value: boolean) => void;
   setErrorMessage: (value: string) => void;
   setMessage: (value: string) => void;
@@ -209,8 +237,33 @@ function createSettingsUpdater(options: SettingsUpdaterOptions) {
     options.setIsBusy(true);
     options.setErrorMessage("");
     try {
-      options.setDesktopSettings(await updateDesktopSettings(settings));
+      const savedSettings = await updateDesktopSettings(settings);
+      options.setDesktopSettings(savedSettings);
+      options.setMonitorEnabled(savedSettings.monitorEnabled);
       options.setMessage("桌面设置已保存，并已应用保留策略。");
+      await options.refreshView();
+    } catch (error) {
+      options.setErrorMessage(String(error));
+    } finally {
+      options.setIsBusy(false);
+    }
+  };
+}
+
+interface DeletedItemsPurgerOptions {
+  refreshView: () => Promise<void>;
+  setIsBusy: (value: boolean) => void;
+  setErrorMessage: (value: string) => void;
+  setMessage: (value: string) => void;
+}
+
+function createDeletedItemsPurger(options: DeletedItemsPurgerOptions) {
+  return async () => {
+    options.setIsBusy(true);
+    options.setErrorMessage("");
+    try {
+      const removed = await purgeDeletedClipboardItems(true);
+      options.setMessage(`已清理 ${removed} 条已删除记录。`);
       await options.refreshView();
     } catch (error) {
       options.setErrorMessage(String(error));
