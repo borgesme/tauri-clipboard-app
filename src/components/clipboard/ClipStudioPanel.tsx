@@ -1,4 +1,4 @@
-import { CalendarDays, Copy, Send, Settings, WandSparkles } from "lucide-react";
+import { CalendarDays, Copy, Send, Settings, WandSparkles, X } from "lucide-react";
 
 import { DesktopSettingsPanel } from "@/components/clipboard/DesktopSettingsPanel";
 import { Kbd } from "@/components/clipboard/ClipStudioLayout";
@@ -24,7 +24,9 @@ interface ClipStudioPanelProps {
   toolboxResult: string;
   desktopSettings: DesktopSettings | null;
   isBusy: boolean;
+  drawerOpen: boolean;
   onTabChange: (tab: PanelTab) => void;
+  onCloseDrawer: () => void;
   onDateSelect: (date: string) => void;
   onToolboxTextChange: (value: string) => void;
   onToolboxResultChange: (value: string) => void;
@@ -50,18 +52,34 @@ const toolActions: Array<{ value: ToolboxAction; label: string }> = [
 
 export function ClipStudioPanel(props: ClipStudioPanelProps) {
   return (
-    <aside className="clip-panel">
-      <TabBar activeTab={props.activeTab} onTabChange={props.onTabChange} />
-      <div className="clip-panel-body">
-        {props.activeTab === "calendar" ? <CalendarPanel {...props} /> : null}
-        {props.activeTab === "toolbox" ? <ToolboxPanel {...props} /> : null}
-        {props.activeTab === "settings" ? <SettingsPanel {...props} /> : null}
-      </div>
-    </aside>
+    <>
+      <button
+        aria-label={`打开${getTabLabel(props.activeTab)}抽屉`}
+        className="clip-panel-handle"
+        type="button"
+        onClick={() => props.onTabChange(props.activeTab)}
+      >
+        {getTabLabel(props.activeTab)}
+      </button>
+      <button
+        aria-label="关闭右侧抽屉"
+        className={cn("clip-panel-scrim", props.drawerOpen && "open")}
+        type="button"
+        onClick={props.onCloseDrawer}
+      />
+      <aside className={cn("clip-panel", props.drawerOpen && "open")}>
+        <TabBar activeTab={props.activeTab} onCloseDrawer={props.onCloseDrawer} onTabChange={props.onTabChange} />
+        <div className="clip-panel-body">
+          {props.activeTab === "calendar" ? <CalendarPanel {...props} /> : null}
+          {props.activeTab === "toolbox" ? <ToolboxPanel {...props} /> : null}
+          {props.activeTab === "settings" ? <SettingsPanel {...props} /> : null}
+        </div>
+      </aside>
+    </>
   );
 }
 
-function TabBar({ activeTab, onTabChange }: Pick<ClipStudioPanelProps, "activeTab" | "onTabChange">) {
+function TabBar({ activeTab, onCloseDrawer, onTabChange }: Pick<ClipStudioPanelProps, "activeTab" | "onCloseDrawer" | "onTabChange">) {
   return (
     <div className="clip-tabs" aria-label="右侧面板">
       {tabs.map((tab) => (
@@ -74,8 +92,15 @@ function TabBar({ activeTab, onTabChange }: Pick<ClipStudioPanelProps, "activeTa
           {tab.label}
         </button>
       ))}
+      <button className="clip-panel-close" type="button" onClick={onCloseDrawer}>
+        <X className="size-4" />
+      </button>
     </div>
   );
+}
+
+function getTabLabel(tab: PanelTab) {
+  return tabs.find((item) => item.value === tab)?.label ?? "面板";
 }
 
 function CalendarPanel(props: ClipStudioPanelProps) {

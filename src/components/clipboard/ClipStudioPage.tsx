@@ -42,12 +42,14 @@ interface ClipStudioState {
   activeFilter: ClipFilter;
   activePanel: PanelTab;
   detailItem: ClipboardItem | null;
+  drawerOpen: boolean;
   frequentCount: number;
   searchInputRef: React.MutableRefObject<HTMLInputElement | null>;
   selectedItem: ClipboardItem | null;
   setActiveFilter: (filter: ClipFilter) => void;
   setActivePanel: (panel: PanelTab) => void;
   setDetailItem: (item: ClipboardItem | null) => void;
+  setDrawerOpen: (open: boolean) => void;
   setToolboxResult: (value: string) => void;
   setToolboxText: (value: string) => void;
   today: string;
@@ -60,6 +62,7 @@ interface ClipStudioState {
 function useClipStudioState(workspace: ReturnType<typeof useClipboardWorkspace>, initialPanel: PanelTab) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [activeFilter, setActiveFilter] = useState<ClipFilter>("all");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelTab>(initialPanel);
   const [detailItem, setDetailItem] = useState<ClipboardItem | null>(null);
   const [toolboxText, setToolboxText] = useState("选择一条剪贴板记录后，按 T 或点击“送入工具箱”。");
@@ -72,12 +75,14 @@ function useClipStudioState(workspace: ReturnType<typeof useClipboardWorkspace>,
     activeFilter,
     activePanel,
     detailItem,
+    drawerOpen,
     frequentCount,
     searchInputRef,
     selectedItem,
     setActiveFilter,
     setActivePanel,
     setDetailItem,
+    setDrawerOpen,
     setToolboxResult,
     setToolboxText,
     today: todayKey(),
@@ -129,9 +134,9 @@ function createLayoutProps(workspace: ReturnType<typeof useClipboardWorkspace>, 
     frequentCount: state.frequentCount,
     monitorEnabled: workspace.monitorEnabled,
     message: workspace.message,
-    onOpenCalendar: () => state.setActivePanel("calendar"),
-    onOpenToolbox: () => state.setActivePanel("toolbox"),
-    onOpenSettings: () => state.setActivePanel("settings"),
+    onOpenCalendar: () => openPanel("calendar", state),
+    onOpenToolbox: () => openPanel("toolbox", state),
+    onOpenSettings: () => openPanel("settings", state),
     onShowFrequent: () => state.setActiveFilter("frequent"),
     onToggleMonitor: () => void workspace.toggleMonitor(),
   };
@@ -170,7 +175,9 @@ function createPanelProps(workspace: ReturnType<typeof useClipboardWorkspace>, s
     toolboxResult: state.toolboxResult,
     desktopSettings: workspace.desktopSettings,
     isBusy: workspace.isBusy,
-    onTabChange: state.setActivePanel,
+    drawerOpen: state.drawerOpen,
+    onTabChange: (tab: PanelTab) => openPanel(tab, state),
+    onCloseDrawer: () => state.setDrawerOpen(false),
     onDateSelect: workspace.selectDate,
     onToolboxTextChange: state.setToolboxText,
     onToolboxResultChange: state.setToolboxResult,
@@ -195,11 +202,17 @@ function createDialogProps(workspace: ReturnType<typeof useClipboardWorkspace>, 
 function sendToToolbox(item: ClipboardItem, state: ClipStudioState) {
   state.setToolboxText(item.content);
   state.setToolboxResult("");
-  state.setActivePanel("toolbox");
+  openPanel("toolbox", state);
+}
+
+function openPanel(tab: PanelTab, state: ClipStudioState) {
+  state.setActivePanel(tab);
+  state.setDrawerOpen(true);
 }
 
 function resetView(workspace: ReturnType<typeof useClipboardWorkspace>, state: ClipStudioState) {
   state.setDetailItem(null);
+  state.setDrawerOpen(false);
   state.setActiveFilter("all");
   workspace.setSearchTerm("");
 }
