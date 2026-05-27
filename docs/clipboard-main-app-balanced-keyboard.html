@@ -1,0 +1,1418 @@
+
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clip Studio — 保留原结构优化版</title>
+  <style>
+    :root{
+      --bg:#f5f4ed;
+      --surface:#faf9f5;
+      --card:#ffffff;
+      --fg:#141413;
+      --muted:#5e5d59;
+      --sub:#87867f;
+      --border:#f0eee6;
+      --border2:#e8e6dc;
+      --accent:#c96442;
+      --accent-soft:rgba(201,100,66,.11);
+      --dark:#30302e;
+      --success:#4f9d69;
+      --danger:#b53333;
+      --focus:#3898ec;
+      --font-display:Georgia,"Times New Roman",serif;
+      --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      --font-mono:"SFMono-Regular",Consolas,Menlo,monospace;
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:var(--bg);
+      color:var(--fg);
+      font-family:var(--font-body);
+    }
+
+    body{
+      display:grid;
+      place-items:center;
+      padding:24px;
+      overflow:hidden;
+    }
+
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+
+    .app{
+      width:min(1180px,100%);
+      height:min(760px,calc(100vh - 48px));
+      min-width:min(860px,100%);
+      min-height:620px;
+      background:var(--surface);
+      border:1px solid var(--border2);
+      border-radius:26px;
+      overflow:hidden;
+      box-shadow:0 22px 70px rgba(20,20,19,.12),0 0 0 1px rgba(255,255,255,.7) inset;
+      display:grid;
+      grid-template-rows:42px 1fr 32px;
+      resize:both;
+      max-width:1380px;
+      max-height:920px;
+      position:relative;
+    }
+
+    .bar{
+      height:42px;
+      border-bottom:1px solid var(--border);
+      display:grid;
+      grid-template-columns:140px 1fr 250px;
+      align-items:center;
+      padding:0 14px;
+      background:rgba(250,249,245,.88);
+      backdrop-filter:blur(12px);
+    }
+
+    .traffic{display:flex;gap:8px}
+    .dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(20,20,19,.14)}
+    .r{background:#e86d5f}.y{background:#e7b95e}.g{background:#68b36b}
+
+    .bar-title{
+      justify-self:center;
+      color:var(--muted);
+      font-size:13px;
+      display:flex;
+      align-items:center;
+      gap:7px;
+    }
+
+    .bar-actions{
+      justify-self:end;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    .kbd{
+      font-family:var(--font-mono);
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--border2);
+      background:#fff;
+      border-radius:7px;
+      padding:2px 6px;
+      white-space:nowrap;
+      box-shadow:0 1px 0 rgba(20,20,19,.04);
+    }
+
+    .btn,.icon,.chip,.tab{
+      min-height:34px;
+      border:1px solid var(--border2);
+      background:#fff;
+      border-radius:12px;
+      color:var(--fg);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:0 12px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.45) inset;
+    }
+
+    .icon{width:34px;padding:0;color:var(--muted)}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#faf9f5}
+    .btn.dark{background:var(--dark);border-color:var(--dark);color:#faf9f5}
+
+    .workspace{
+      min-height:0;
+      display:grid;
+      grid-template-columns:224px minmax(390px,1fr) 350px;
+    }
+
+    .side{
+      border-right:1px solid var(--border);
+      padding:16px 12px;
+      background:rgba(245,244,237,.74);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:16px;
+      min-width:0;
+    }
+
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 6px 10px;
+    }
+
+    .mark{
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      background:var(--fg);
+      color:#faf9f5;
+      display:grid;
+      place-items:center;
+      font-family:var(--font-display);
+      font-size:19px;
+    }
+
+    .name{font-size:14px;font-weight:700}
+    .sub{font-size:12px;color:var(--sub);margin-top:2px}
+
+    .nav{display:grid;gap:6px}
+    .nav-label{
+      padding:0 10px;
+      margin:12px 0 4px;
+      color:var(--sub);
+      font-size:11px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .nav-item{
+      height:38px;
+      width:100%;
+      border:0;
+      background:transparent;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 10px;
+      color:var(--muted);
+      text-align:left;
+    }
+
+    .nav-item:hover{background:rgba(232,230,220,.55);color:var(--fg)}
+    .nav-item.active{
+      background:#fff;
+      color:var(--fg);
+      box-shadow:0 0 0 1px var(--border2),0 4px 18px rgba(20,20,19,.04);
+    }
+
+    .count{
+      margin-left:auto;
+      color:var(--sub);
+      font-size:12px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .status{
+      border:1px solid var(--border);
+      background:rgba(250,249,245,.8);
+      border-radius:18px;
+      padding:12px;
+      display:grid;
+      gap:10px;
+      font-size:13px;
+    }
+
+    .status-row{display:flex;justify-content:space-between;align-items:center}
+    .green-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--success);
+      box-shadow:0 0 0 4px rgba(79,157,105,.12);
+      display:inline-block;
+      margin-right:8px;
+    }
+
+    .usage{height:6px;background:var(--border2);border-radius:999px;overflow:hidden}
+    .usage span{display:block;height:100%;width:61%;background:var(--accent)}
+
+    .main{
+      min-width:0;
+      min-height:0;
+      display:grid;
+      grid-template-rows:auto auto auto 1fr;
+      border-right:1px solid var(--border);
+    }
+
+    .search{
+      padding:14px 16px 10px;
+      display:grid;
+      grid-template-columns:minmax(240px,1fr) auto;
+      gap:10px;
+    }
+
+    .searchbox{
+      height:40px;
+      border:1px solid var(--border2);
+      background:#fff;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 12px;
+    }
+
+    .searchbox:focus-within{
+      border-color:var(--focus);
+      box-shadow:0 0 0 3px rgba(56,152,236,.14);
+    }
+
+    .searchbox input{
+      border:0;
+      outline:0;
+      background:transparent;
+      width:100%;
+      min-width:0;
+      color:var(--fg);
+    }
+
+    .filters{
+      padding:0 16px 10px;
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      scrollbar-width:none;
+    }
+
+    .filters::-webkit-scrollbar{display:none}
+
+    .chip{
+      min-height:30px;
+      white-space:nowrap;
+      font-size:13px;
+      color:var(--muted);
+      background:rgba(255,255,255,.72);
+      border-radius:999px;
+    }
+
+    .chip.active{
+      background:var(--dark);
+      color:#faf9f5;
+      border-color:var(--dark);
+    }
+
+    .keyboard-strip{
+      padding:7px 16px;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      background:rgba(255,255,255,.32);
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      color:var(--sub);
+      font-size:12px;
+      align-items:center;
+    }
+
+    .list{
+      min-height:0;
+      overflow:auto;
+      padding:0 16px 16px;
+    }
+
+    .group{margin-bottom:14px}
+
+    .group-head{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:linear-gradient(to bottom,var(--surface) 72%,rgba(250,249,245,0));
+      padding:11px 0 7px;
+      display:flex;
+      justify-content:space-between;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .group-title{
+      font-weight:700;
+      color:var(--fg);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex:1;
+    }
+
+    .line{
+      height:1px;
+      background:var(--border);
+      flex:1;
+      margin-left:12px;
+    }
+
+    .clip{
+      width:100%;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.62);
+      border-radius:15px;
+      padding:10px 11px;
+      display:grid;
+      grid-template-columns:32px 1fr auto;
+      gap:11px;
+      align-items:center;
+      margin-bottom:7px;
+      text-align:left;
+      transition:.14s ease;
+    }
+
+    .clip:hover{
+      border-color:var(--border2);
+      background:#fff;
+    }
+
+    .clip.selected{
+      border-color:var(--accent);
+      background:#fff;
+      box-shadow:0 8px 24px rgba(20,20,19,.06),0 0 0 3px var(--accent-soft);
+      transform:translateY(-1px);
+    }
+
+    .clip-ico{
+      width:32px;
+      height:32px;
+      border-radius:10px;
+      background:var(--border);
+      color:var(--accent);
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      font-weight:700;
+      font-family:var(--font-mono);
+    }
+
+    .clip-ico.secret{
+      background:rgba(181,51,51,.08);
+      color:var(--danger);
+    }
+
+    .clip-main{min-width:0;display:grid;gap:4px}
+
+    .clip-title{
+      font-size:14px;
+      font-weight:650;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .preview{
+      font-size:12.5px;
+      line-height:1.35;
+      color:var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .meta{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      flex-wrap:wrap;
+      color:var(--sub);
+      font-size:11px;
+    }
+
+    .tag{
+      border:1px solid var(--border);
+      background:rgba(245,244,237,.8);
+      border-radius:999px;
+      padding:2px 7px;
+      color:var(--muted);
+      font-size:11px;
+    }
+
+    .tag.warn{
+      color:var(--danger);
+      background:rgba(181,51,51,.07);
+      border-color:rgba(181,51,51,.16);
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(2,28px);
+      gap:6px;
+    }
+
+    .small{
+      width:28px;
+      height:28px;
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:9px;
+      color:var(--muted);
+      display:grid;
+      place-items:center;
+    }
+
+    .panel{
+      min-width:0;
+      min-height:0;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      background:rgba(250,249,245,.72);
+    }
+
+    .tabs{
+      padding:12px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:6px;
+      border-bottom:1px solid var(--border);
+    }
+
+    .tab{
+      background:transparent;
+      color:var(--muted);
+      border-color:transparent;
+      box-shadow:none;
+      font-size:13px;
+    }
+
+    .tab.active{
+      background:#fff;
+      color:var(--fg);
+      border-color:var(--border2);
+    }
+
+    .panel-body{
+      min-height:0;
+      overflow:auto;
+      padding:16px;
+    }
+
+    .view{display:none}
+    .view.active{display:grid;gap:14px}
+
+    .card{
+      background:rgba(255,255,255,.68);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:14px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.45) inset;
+    }
+
+    .card h2{
+      font-family:var(--font-display);
+      font-size:20px;
+      font-weight:500;
+      margin:0 0 8px;
+      line-height:1.2;
+    }
+
+    .card p{
+      font-size:13px;
+      line-height:1.55;
+      color:var(--muted);
+      margin:0;
+    }
+
+    .calendar{display:grid;gap:8px}
+
+    .week{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:6px;
+    }
+
+    .day,.weekday{
+      height:34px;
+      border-radius:10px;
+      display:grid;
+      place-items:center;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .weekday{
+      height:20px;
+      color:var(--sub);
+      font-size:11px;
+    }
+
+    .day{
+      background:#fff;
+      border:1px solid var(--border);
+      position:relative;
+    }
+
+    .day.has{
+      color:var(--fg);
+      border-color:var(--border2);
+    }
+
+    .day.active{
+      background:var(--dark);
+      color:#fff;
+      border-color:var(--dark);
+    }
+
+    .day.has:after{
+      content:"";
+      position:absolute;
+      bottom:5px;
+      width:4px;
+      height:4px;
+      border-radius:50%;
+      background:var(--accent);
+    }
+
+    .day.active:after{background:#fff}
+
+    .date-summary{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+
+    .date-stat{
+      border:1px solid var(--border);
+      background:rgba(250,249,245,.78);
+      border-radius:13px;
+      padding:9px;
+    }
+
+    .date-stat b{
+      display:block;
+      font-size:16px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .date-stat span{
+      display:block;
+      color:var(--sub);
+      font-size:11px;
+      margin-top:2px;
+    }
+
+    .source{
+      display:grid;
+      gap:8px;
+    }
+
+    .source button{
+      border:1px solid var(--border);
+      background:rgba(250,249,245,.8);
+      border-radius:14px;
+      padding:10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      text-align:left;
+    }
+
+    .source button.active{
+      border-color:var(--accent);
+      box-shadow:0 0 0 3px var(--accent-soft);
+      background:#fff;
+    }
+
+    .avatar{
+      width:30px;
+      height:30px;
+      border-radius:10px;
+      background:var(--dark);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-weight:700;
+      font-size:12px;
+    }
+
+    textarea{
+      width:100%;
+      min-height:130px;
+      resize:vertical;
+      border:1px solid var(--border2);
+      background:#fff;
+      border-radius:14px;
+      padding:12px;
+      color:var(--fg);
+      outline:0;
+      line-height:1.55;
+    }
+
+    textarea:focus{
+      border-color:var(--focus);
+      box-shadow:0 0 0 3px rgba(56,152,236,.14);
+    }
+
+    .toolgrid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .tool{
+      min-height:38px;
+      border:1px solid var(--border2);
+      background:#fff;
+      border-radius:12px;
+    }
+
+    .result{
+      min-height:82px;
+      border:1px dashed var(--border2);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(245,244,237,.6);
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+      white-space:pre-wrap;
+      margin-top:10px;
+      word-break:break-word;
+    }
+
+    .setting{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-top:1px solid var(--border);
+      align-items:center;
+    }
+
+    .setting:first-child{border-top:0;padding-top:0}
+    .setting b{font-size:13px}
+    .setting small{
+      display:block;
+      color:var(--sub);
+      font-size:12px;
+      margin-top:3px;
+      line-height:1.35;
+    }
+
+    .switch{
+      width:42px;
+      height:24px;
+      border-radius:99px;
+      border:1px solid var(--border2);
+      background:var(--dark);
+      padding:2px;
+      display:flex;
+      justify-content:flex-end;
+      flex:0 0 auto;
+    }
+
+    .switch.off{
+      background:var(--border2);
+      justify-content:flex-start;
+    }
+
+    .switch span{
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 1px 3px rgba(20,20,19,.16);
+    }
+
+    .statusbar{
+      height:32px;
+      border-top:1px solid var(--border);
+      background:rgba(250,249,245,.9);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 12px;
+      color:var(--sub);
+      font-size:12px;
+    }
+
+    .modal-back{
+      position:fixed;
+      inset:0;
+      background:rgba(20,20,19,.28);
+      display:none;
+      place-items:center;
+      padding:24px;
+      z-index:10;
+      backdrop-filter:blur(6px);
+    }
+
+    .modal-back.open{display:grid}
+
+    .modal{
+      width:min(680px,100%);
+      max-height:min(760px,calc(100vh - 44px));
+      overflow:auto;
+      background:var(--surface);
+      border:1px solid var(--border2);
+      border-radius:24px;
+      box-shadow:0 28px 90px rgba(20,20,19,.22);
+    }
+
+    .modal-head{
+      padding:18px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .modal h2{
+      font-family:var(--font-display);
+      font-size:28px;
+      font-weight:500;
+      margin:0;
+      line-height:1.15;
+    }
+
+    .modal-body{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .detail{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+      line-height:1.6;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+    }
+
+    .cell{
+      background:rgba(255,255,255,.58);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+    }
+
+    .cell span{
+      display:block;
+      color:var(--sub);
+      font-size:11px;
+      margin-bottom:4px;
+    }
+
+    .cell strong{font-size:13px}
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:26px;
+      transform:translateX(-50%) translateY(20px);
+      opacity:0;
+      background:var(--dark);
+      color:#fff;
+      border-radius:99px;
+      padding:10px 14px;
+      box-shadow:0 16px 40px rgba(20,20,19,.18);
+      z-index:20;
+      transition:.2s;
+      font-size:13px;
+      pointer-events:none;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .empty{
+      border:1px dashed var(--border2);
+      border-radius:18px;
+      padding:30px 18px;
+      color:var(--muted);
+      text-align:center;
+      background:rgba(255,255,255,.46);
+      line-height:1.6;
+      margin-top:16px;
+    }
+
+    @media(max-width:980px){
+      body{padding:10px;overflow:auto}
+      .app{height:auto;resize:none;min-height:0;min-width:0}
+      .workspace{grid-template-columns:72px minmax(0,1fr)}
+      .panel{grid-column:1/-1;border-top:1px solid var(--border);min-height:430px}
+      .main{border-right:0}
+      .logo .name,.logo .sub,.nav-label,.count,.nav-item .label,.status{display:none}
+      .side{padding:12px 8px}
+      .nav-item{justify-content:center;padding:0}
+      .bar{grid-template-columns:92px 1fr auto}
+      .bar-actions .primary{display:none}
+    }
+
+    @media(max-width:640px){
+      body{padding:0}
+      .app{width:100%;height:100vh;border-radius:0;border:0}
+      .workspace{grid-template-columns:1fr}
+      .side{display:none}
+      .panel{display:none}
+      .search{grid-template-columns:1fr}
+      .clip{grid-template-columns:30px 1fr}
+      .actions{grid-column:2;display:flex}
+      .grid{grid-template-columns:1fr}
+      .bar{grid-template-columns:1fr}
+      .traffic,.bar-actions{display:none}
+      .bar-title{justify-self:center}
+    }
+  </style>
+</head>
+<body>
+  <section class="app" id="app">
+    <header class="bar">
+      <div class="traffic"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+      <div class="bar-title">
+        <span>Clip Studio</span>
+        <span class="kbd">Ctrl/⌘</span>
+        <span class="kbd">Shift</span>
+        <span class="kbd">V</span>
+      </div>
+      <div class="bar-actions">
+        <button class="icon" id="quickCopy" title="复制选中">⧉</button>
+        <button class="btn primary" data-open="settings">设置</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="side">
+        <div>
+          <div class="logo">
+            <div class="mark">C</div>
+            <div>
+              <div class="name">Clip Studio</div>
+              <div class="sub">私有剪贴板中心</div>
+            </div>
+          </div>
+
+          <nav class="nav">
+            <div class="nav-label">空间</div>
+            <button class="nav-item active" data-scope="all"><span>⌘</span><span class="label">剪贴板历史</span><span class="count" id="count">0</span></button>
+            <button class="nav-item" data-scope="pinned"><span>★</span><span class="label">固定片段</span><span class="count" id="pinCount">0</span></button>
+            <button class="nav-item" data-open="toolbox"><span>✎</span><span class="label">文本处理</span></button>
+            <button class="nav-item" data-open="calendar"><span>◷</span><span class="label">日期看板</span></button>
+
+            <div class="nav-label">偏好</div>
+            <button class="nav-item" data-open="settings"><span>⚙</span><span class="label">设置</span></button>
+          </nav>
+        </div>
+
+        <div></div>
+
+        <div class="status">
+          <div class="status-row"><span><i class="green-dot"></i>本地监听中</span><span class="kbd">24h</span></div>
+          <div class="usage"><span></span></div>
+          <div style="color:var(--sub);font-size:12px;line-height:1.4">已保存 1,284 条记录；敏感窗口自动暂停。</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="search">
+          <label class="searchbox">
+            <span style="color:var(--sub)">⌕</span>
+            <input id="q" placeholder="搜索内容、来源应用、链接或代码片段…" />
+          </label>
+          <button class="btn dark" id="clear">清空</button>
+        </div>
+
+        <div class="filters">
+          <button class="chip active" data-type="all">全部</button>
+          <button class="chip" data-type="text">文本</button>
+          <button class="chip" data-type="link">链接</button>
+          <button class="chip" data-type="code">代码</button>
+          <button class="chip" data-type="image">图片</button>
+          <button class="chip" data-type="secret">敏感</button>
+          <button class="chip" data-source="Chrome">Chrome</button>
+          <button class="chip" data-source="VS Code">VS Code</button>
+          <button class="chip" data-source="Notion">Notion</button>
+          <button class="chip" data-source="微信">微信</button>
+        </div>
+
+        <div class="keyboard-strip">
+          <span><span class="kbd">/</span> 搜索</span>
+          <span><span class="kbd">↑ ↓</span> 选择</span>
+          <span><span class="kbd">Enter</span> 复制</span>
+          <span><span class="kbd">Space</span> 详情</span>
+          <span><span class="kbd">T</span> 送入工具箱</span>
+          <span><span class="kbd">Esc</span> 返回全部</span>
+        </div>
+
+        <div class="list" id="list" tabindex="0"></div>
+      </main>
+
+      <aside class="panel">
+        <div class="tabs">
+          <button class="tab active" data-tab="calendar">日期</button>
+          <button class="tab" data-tab="toolbox">工具箱</button>
+          <button class="tab" data-tab="settings">设置</button>
+        </div>
+
+        <div class="panel-body">
+          <section class="view active" id="calendar">
+            <div class="card">
+              <h2>日期看板</h2>
+              <p>保留原来的日期浏览方式。点击有标记日期后，中间列表会切换到当天记录。</p>
+            </div>
+
+            <div class="card">
+              <div class="date-summary">
+                <div class="date-stat"><b id="todayStat">0</b><span>今日记录</span></div>
+                <div class="date-stat"><b>4</b><span>高频复用</span></div>
+                <div class="date-stat"><b>2</b><span>敏感忽略</span></div>
+              </div>
+            </div>
+
+            <div class="card calendar">
+              <div class="week">
+                <div class="weekday">一</div><div class="weekday">二</div><div class="weekday">三</div><div class="weekday">四</div><div class="weekday">五</div><div class="weekday">六</div><div class="weekday">日</div>
+              </div>
+              <div class="week">
+                <button class="day">25</button><button class="day">26</button><button class="day">27</button><button class="day has" data-date="周一">28</button><button class="day has" data-date="昨天">29</button><button class="day">30</button><button class="day">1</button>
+              </div>
+              <div class="week">
+                <button class="day has" data-date="昨天">2</button><button class="day has" data-date="今天">3</button><button class="day active has" data-date="今天">4</button><button class="day has" data-date="今天">5</button><button class="day">6</button><button class="day">7</button><button class="day">8</button>
+              </div>
+              <div class="week">
+                <button class="day has" data-date="周一">9</button><button class="day">10</button><button class="day has" data-date="周一">11</button><button class="day">12</button><button class="day has" data-date="昨天">13</button><button class="day">14</button><button class="day">15</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>来源应用</h2>
+              <div class="source" id="sources"></div>
+            </div>
+          </section>
+
+          <section class="view" id="toolbox">
+            <div class="card">
+              <h2>文本处理工具箱</h2>
+              <p>按 <span class="kbd">T</span> 可把当前选中的剪贴板内容送入这里，减少鼠标操作。</p>
+            </div>
+            <div class="card">
+              <textarea id="toolInput">选择一条剪贴板记录后，按 T 或点击“送入工具箱”。</textarea>
+              <div class="toolgrid">
+                <button class="tool" data-tool="trim">清理空格</button>
+                <button class="tool" data-tool="upper">转大写</button>
+                <button class="tool" data-tool="lower">转小写</button>
+                <button class="tool" data-tool="markdown">生成 Markdown 链接</button>
+              </div>
+              <div class="result" id="result">转换结果会显示在这里。</div>
+              <button class="btn primary" id="copyResult" style="margin-top:10px">复制结果</button>
+            </div>
+          </section>
+
+          <section class="view" id="settings">
+            <div class="card">
+              <h2>设置</h2>
+              <p>保留窗口尺寸记忆、敏感应用暂停监听、历史保留策略和快捷键设置。</p>
+            </div>
+            <div class="card">
+              <div class="setting">
+                <div><b>记住窗口大小</b><small>拖拽右下角调整后，下次打开自动恢复。</small></div>
+                <button class="switch" id="remember"><span></span></button>
+              </div>
+              <div class="setting">
+                <div><b>敏感应用暂停监听</b><small>密码管理器、银行应用、隐私浏览窗口自动忽略。</small></div>
+                <button class="switch"><span></span></button>
+              </div>
+              <div class="setting">
+                <div><b>默认保留时长</b><small>超过期限的非固定记录自动清理。</small></div>
+                <select class="btn"><option>30 天</option><option selected>90 天</option><option>永久</option></select>
+              </div>
+              <div class="setting">
+                <div><b>唤起快捷键</b><small>兼容 macOS 与 Windows。</small></div>
+                <span class="kbd">Ctrl/⌘ Shift V</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span id="statusLeft">Ready</span>
+      <span>窗口可调整 · 自动保存尺寸 · 键盘优先增强</span>
+    </footer>
+  </section>
+
+  <div class="modal-back" id="modal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="modalTitle">剪贴板详情</h2>
+          <div class="meta" id="modalMeta" style="margin-top:8px"></div>
+        </div>
+        <button class="icon" id="close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail" id="modalContent"></div>
+        <div class="grid" id="modalGrid"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="copyModal">复制</button>
+          <button class="btn" id="toTool">送入工具箱</button>
+          <button class="btn" id="pinModal">固定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">已复制</div>
+
+  <script>
+    const clips=[
+      {id:1,type:"text",icon:"文",title:"产品需求：剪贴板历史分组",content:"新增日期看板，用于按日期切换历史分组。历史条目需要支持打开详情，展示内容、来源、时间、类型、字符数和操作记录，并保留复制/固定等操作。",source:"Notion",date:"今天",time:"14:32",chars:86,pinned:true,actions:"复制 3 次 · 已固定"},
+      {id:2,type:"link",icon:"↗",title:"Tailwind CSS 文档",content:"https://tailwindcss.com/docs/installation/using-vite",source:"Chrome",date:"今天",time:"13:58",chars:55,pinned:false,actions:"复制 1 次"},
+      {id:3,type:"code",icon:"{}",title:"窗口尺寸持久化代码片段",content:"const rect = appShell.getBoundingClientRect();\nlocalStorage.setItem('clip-window-size', JSON.stringify({ width: rect.width, height: rect.height }));",source:"VS Code",date:"今天",time:"12:10",chars:146,pinned:true,actions:"复制 5 次 · 送入工具箱 1 次"},
+      {id:4,type:"text",icon:"文",title:"微信里的地址信息",content:"明天下午 3 点，望京 SOHO T2 一层咖啡店。带上测试包和键盘快捷键清单。",source:"微信",date:"今天",time:"09:24",chars:42,pinned:false,actions:"复制 2 次"},
+      {id:5,type:"image",icon:"▧",title:"设置页截图",content:"图片记录：settings-panel-reference.png · 1440×960 · 来自屏幕截图",source:"截图",date:"昨天",time:"18:46",chars:34,pinned:false,actions:"预览 1 次"},
+      {id:6,type:"code",icon:"</>",title:"shadcn Card 结构",content:"<Card>\n  <CardHeader>\n    <CardTitle>Clipboard History</CardTitle>\n  </CardHeader>\n  <CardContent>{items}</CardContent>\n</Card>",source:"VS Code",date:"昨天",time:"16:04",chars:136,pinned:false,actions:"复制 4 次"},
+      {id:7,type:"text",icon:"文",title:"快捷键策略备忘",content:"默认 Ctrl/Command + Shift + V 打开悬浮窗口；Enter 复制选中项；Esc 关闭；方向键在历史列表中移动；/ 聚焦搜索；T 送入工具箱。",source:"Obsidian",date:"昨天",time:"10:41",chars:72,pinned:true,actions:"复制 2 次 · 已固定"},
+      {id:8,type:"secret",icon:"••",title:"疑似一次性验证码",content:"••••••  已隐藏。来自短信应用，2 分钟后自动清除。",source:"信息",date:"今天",time:"08:57",chars:6,pinned:false,actions:"自动隐藏 · 01:38 后清除"},
+      {id:9,type:"link",icon:"↗",title:"本地优先软件设计文章",content:"https://www.inkandswitch.com/local-first/",source:"Chrome",date:"周一",time:"21:18",chars:42,pinned:false,actions:"复制 1 次"}
+    ];
+
+    const state={type:"all",source:null,q:"",scope:"all",date:null,selectedIndex:0,current:null,remember:true};
+    const $=s=>document.querySelector(s);
+    const $$=s=>Array.from(document.querySelectorAll(s));
+    const list=$("#list"),toast=$("#toast"),modal=$("#modal"),app=$("#app");
+
+    const typeName=t=>({text:"文本",link:"链接",code:"代码",image:"图片",secret:"敏感"})[t]||t;
+    const esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+
+    function show(msg){
+      toast.textContent=msg;
+      toast.classList.add("show");
+      clearTimeout(show.t);
+      show.t=setTimeout(()=>toast.classList.remove("show"),1600);
+    }
+
+    function copy(text,msg="已复制到剪贴板"){
+      navigator.clipboard?.writeText(text).catch(()=>{});
+      show(msg);
+    }
+
+    function filtered(){
+      const q=state.q.toLowerCase().trim();
+      return clips.filter(c=>{
+        const scopeOk=state.scope==="all"||(state.scope==="pinned"&&c.pinned);
+        const typeOk=state.type==="all"||c.type===state.type;
+        const sourceOk=!state.source||c.source===state.source;
+        const dateOk=!state.date||c.date===state.date;
+        const queryOk=!q||[c.title,c.content,c.source,c.date,typeName(c.type)].join(" ").toLowerCase().includes(q);
+        return scopeOk&&typeOk&&sourceOk&&dateOk&&queryOk;
+      });
+    }
+
+    function selectedClip(){
+      const items=filtered();
+      if(!items.length)return null;
+      state.selectedIndex=Math.max(0,Math.min(state.selectedIndex,items.length-1));
+      return items[state.selectedIndex];
+    }
+
+    function render(){
+      const items=filtered();
+      $("#count").textContent=items.length;
+      $("#pinCount").textContent=clips.filter(c=>c.pinned).length;
+      $("#todayStat").textContent=clips.filter(c=>c.date==="今天").length;
+      $("#statusLeft").textContent=`Ready · ${items.length} 条匹配记录 · ${items.length?`选中第 ${state.selectedIndex+1} 条`:"无选中记录"}`;
+
+      if(!items.length){
+        list.innerHTML='<div class="empty">没有匹配的剪贴板记录。<br>按 Esc 返回全部记录，或放宽类型、来源、日期筛选。</div>';
+        return;
+      }
+
+      const groups=items.reduce((a,c)=>((a[c.date]??=[]).push(c),a),{});
+      let flat=0;
+
+      list.innerHTML=Object.entries(groups).map(([date,arr])=>{
+        const rows=arr.map(c=>{
+          const idx=flat++;
+          const selected=idx===state.selectedIndex;
+          return `<button class="clip ${selected?"selected":""}" data-index="${idx}" data-id="${c.id}">
+            <span class="clip-ico ${c.type==="secret"?"secret":""}">${esc(c.icon)}</span>
+            <span class="clip-main">
+              <span class="clip-title">${esc(c.title)} ${c.pinned?'<span class="tag">固定</span>':""} ${c.type==="secret"?'<span class="tag warn">保护</span>':""}</span>
+              <span class="preview">${esc(c.content)}</span>
+              <span class="meta"><span class="tag">${typeName(c.type)}</span><span>${esc(c.source)}</span><span>·</span><span>${c.time}</span><span>·</span><span>${c.chars} 字符</span></span>
+            </span>
+            <span class="actions">
+              <span class="small" data-copy="${c.id}">⧉</span>
+              <span class="small" data-pin="${c.id}">${c.pinned?"★":"☆"}</span>
+            </span>
+          </button>`;
+        }).join("");
+
+        return `<section class="group"><div class="group-head"><div class="group-title">${date}<span class="line"></span></div><span>${arr.length} 条</span></div>${rows}</section>`;
+      }).join("");
+
+      $$(".clip").forEach(el=>{
+        el.onclick=e=>{
+          const copyId=e.target.dataset.copy;
+          const pinId=e.target.dataset.pin;
+          if(copyId){
+            e.stopPropagation();
+            const c=clips.find(x=>x.id==copyId);
+            copy(c.content,`已复制：${c.title}`);
+            return;
+          }
+          if(pinId){
+            e.stopPropagation();
+            show("已切换固定状态");
+            return;
+          }
+          state.selectedIndex=+el.dataset.index;
+          render();
+        };
+
+        el.ondblclick=()=>{
+          state.selectedIndex=+el.dataset.index;
+          openDetail(selectedClip());
+        };
+      });
+
+      renderSources();
+    }
+
+    function renderSources(){
+      const counts=clips.reduce((a,c)=>((a[c.source]=(a[c.source]||0)+1),a),{});
+      $("#sources").innerHTML=Object.entries(counts).map(([s,n])=>`
+        <button data-src="${esc(s)}" class="${state.source===s?"active":""}">
+          <span class="avatar">${esc(s[0])}</span>
+          <span style="flex:1;min-width:0">
+            <b style="font-size:13px">${esc(s)}</b><br>
+            <small style="color:var(--sub)">${n} 条记录</small>
+          </span>
+          <span style="color:var(--sub)">›</span>
+        </button>
+      `).join("");
+
+      $$("#sources button").forEach(b=>{
+        b.onclick=()=>{
+          state.source=b.dataset.src;
+          state.type="all";
+          state.date=null;
+          state.selectedIndex=0;
+          $$(".chip").forEach(c=>c.classList.remove("active"));
+          render();
+          show("已筛选来源："+b.dataset.src);
+        };
+      });
+    }
+
+    function openDetail(c){
+      if(!c)return;
+      state.current=c;
+      $("#modalTitle").textContent=c.title;
+      $("#modalContent").textContent=c.content;
+      $("#modalMeta").innerHTML=`<span class="tag">${typeName(c.type)}</span><span>${esc(c.source)}</span><span>${c.date} ${c.time}</span>`;
+      $("#modalGrid").innerHTML=`
+        <div class="cell"><span>来源应用</span><strong>${esc(c.source)}</strong></div>
+        <div class="cell"><span>类型</span><strong>${typeName(c.type)}</strong></div>
+        <div class="cell"><span>字符数</span><strong>${c.chars}</strong></div>
+        <div class="cell"><span>操作记录</span><strong>${esc(c.actions)}</strong></div>
+      `;
+      modal.classList.add("open");
+    }
+
+    function panel(name){
+      $$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===name));
+      $$(".view").forEach(v=>v.classList.toggle("active",v.id===name));
+    }
+
+    function move(delta){
+      const items=filtered();
+      if(!items.length)return;
+      state.selectedIndex=Math.max(0,Math.min(items.length-1,state.selectedIndex+delta));
+      render();
+      const selected=$(".clip.selected");
+      if(selected){
+        const top=selected.offsetTop;
+        const bottom=top+selected.offsetHeight;
+        if(top<list.scrollTop)list.scrollTop=top-8;
+        if(bottom>list.scrollTop+list.clientHeight)list.scrollTop=bottom-list.clientHeight+8;
+      }
+    }
+
+    function sendToTool(){
+      const c=selectedClip();
+      if(!c)return;
+      $("#toolInput").value=c.content;
+      panel("toolbox");
+      show("已送入文本处理工具箱");
+    }
+
+    $("#q").oninput=e=>{
+      state.q=e.target.value;
+      state.selectedIndex=0;
+      render();
+    };
+
+    $("#clear").onclick=()=>{
+      $("#q").value="";
+      state.q="";
+      state.type="all";
+      state.source=null;
+      state.scope="all";
+      state.date=null;
+      state.selectedIndex=0;
+      $$(".chip").forEach(c=>c.classList.remove("active"));
+      $('[data-type="all"]').classList.add("active");
+      render();
+    };
+
+    $$(".chip").forEach(ch=>{
+      ch.onclick=()=>{
+        $$(".chip").forEach(c=>c.classList.remove("active"));
+        ch.classList.add("active");
+        state.type=ch.dataset.type||"all";
+        state.source=ch.dataset.source||null;
+        state.date=null;
+        state.scope="all";
+        if(state.source)state.type="all";
+        state.selectedIndex=0;
+        render();
+      };
+    });
+
+    $$(".tab").forEach(t=>t.onclick=()=>panel(t.dataset.tab));
+    $$("[data-open]").forEach(b=>b.onclick=()=>panel(b.dataset.open));
+
+    $$("[data-scope]").forEach(b=>{
+      b.onclick=()=>{
+        $$(".nav-item").forEach(n=>n.classList.remove("active"));
+        b.classList.add("active");
+        state.scope=b.dataset.scope;
+        state.type="all";
+        state.source=null;
+        state.date=null;
+        state.selectedIndex=0;
+        $$(".chip").forEach(c=>c.classList.remove("active"));
+        $('[data-type="all"]').classList.add("active");
+        render();
+      };
+    });
+
+    $$(".day.has").forEach(d=>{
+      d.onclick=()=>{
+        $$(".day").forEach(x=>x.classList.remove("active"));
+        d.classList.add("active");
+        state.date=d.dataset.date;
+        state.selectedIndex=0;
+        render();
+        show("已切换到 "+d.dataset.date+" 记录");
+      };
+    });
+
+    $("#close").onclick=()=>modal.classList.remove("open");
+    modal.onclick=e=>{if(e.target===modal)modal.classList.remove("open")};
+
+    $("#copyModal").onclick=()=>state.current&&copy(state.current.content,`已复制：${state.current.title}`);
+    $("#toTool").onclick=()=>{
+      if(state.current){
+        $("#toolInput").value=state.current.content;
+        modal.classList.remove("open");
+        panel("toolbox");
+        show("已送入文本处理工具箱");
+      }
+    };
+    $("#pinModal").onclick=()=>show("已切换固定状态");
+    $("#quickCopy").onclick=()=>{const c=selectedClip();if(c)copy(c.content,`已复制：${c.title}`)};
+
+    $$(".tool").forEach(b=>{
+      b.onclick=()=>{
+        const v=$("#toolInput").value;
+        let r=v;
+        if(b.dataset.tool==="trim")r=v.replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();
+        if(b.dataset.tool==="upper")r=v.toUpperCase();
+        if(b.dataset.tool==="lower")r=v.toLowerCase();
+        if(b.dataset.tool==="markdown")r=v.trim().startsWith("http")?`[链接标题](${v.trim()})`:`[${v.trim()||"链接标题"}](https://example.com)`;
+        $("#result").textContent=r||"—";
+      };
+    });
+
+    $("#copyResult").onclick=()=>copy($("#result").textContent,"已复制转换结果");
+
+    $$(".switch").forEach(sw=>{
+      sw.onclick=()=>{sw.classList.toggle("off");show(sw.classList.contains("off")?"规则已关闭":"规则已开启")};
+    });
+
+    document.addEventListener("keydown",e=>{
+      const active=document.activeElement?.tagName?.toLowerCase();
+      const typing=active==="input"||active==="textarea";
+
+      if(e.key==="Escape"){
+        modal.classList.remove("open");
+        $("#q").value="";
+        state.q="";
+        state.type="all";
+        state.source=null;
+        state.scope="all";
+        state.date=null;
+        state.selectedIndex=0;
+        $$(".chip").forEach(c=>c.classList.remove("active"));
+        $('[data-type="all"]').classList.add("active");
+        render();
+        show("已返回全部记录");
+        return;
+      }
+
+      if(e.key==="/"&&!typing){
+        e.preventDefault();
+        $("#q").focus();
+        return;
+      }
+
+      if(typing)return;
+
+      if(e.key==="ArrowDown"){
+        e.preventDefault();
+        move(1);
+      }
+
+      if(e.key==="ArrowUp"){
+        e.preventDefault();
+        move(-1);
+      }
+
+      if(e.key==="Enter"){
+        const c=selectedClip();
+        if(c)copy(c.content,`已复制：${c.title}`);
+      }
+
+      if(e.key===" "){
+        e.preventDefault();
+        openDetail(selectedClip());
+      }
+
+      if(e.key.toLowerCase()==="t"){
+        sendToTool();
+      }
+    });
+
+    const saved=localStorage.getItem("clip-window-size");
+    if(saved){
+      try{
+        const s=JSON.parse(saved);
+        if(s.width&&s.height){
+          app.style.width=Math.min(s.width,innerWidth-24)+"px";
+          app.style.height=Math.min(s.height,innerHeight-24)+"px";
+        }
+      }catch{}
+    }
+
+    new ResizeObserver(es=>{
+      if(!state.remember)return;
+      const r=es[0].contentRect;
+      if(r.width>820&&r.height>560){
+        localStorage.setItem("clip-window-size",JSON.stringify({width:Math.round(r.width),height:Math.round(r.height)}));
+      }
+    }).observe(app);
+
+    render();
+  </script>
+</body>
+</html>

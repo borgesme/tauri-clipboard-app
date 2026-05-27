@@ -1,12 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Minimize2, Settings } from "lucide-react";
 
 import { validateStorageDir } from "@/api/clipboard";
-import { CustomSecretPatternsSetting, MaintenanceAction } from "@/components/clipboard/SettingsAdvancedActions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { DesktopSettings } from "@/types/clipboard";
@@ -20,125 +16,152 @@ interface DesktopSettingsPanelProps {
   onHideWindow: () => void;
 }
 
-interface SettingsFormProps {
+interface SettingsFormProps extends Omit<DesktopSettingsPanelProps, "className" | "settings"> {
   settings: DesktopSettings;
-  isBusy: boolean;
-  onSettingsChange: (settings: DesktopSettings) => void;
-  onPurgeDeletedItems: () => void;
-  onHideWindow: () => void;
 }
 
 export function DesktopSettingsPanel(props: DesktopSettingsPanelProps) {
   return (
-    <Card className={cn("gap-4 border-border/70 bg-card/90 shadow-xl backdrop-blur", props.className)}>
-      <PanelHeader />
-      <CardContent className="grid gap-3 md:grid-cols-2">
-        {props.settings ? <SettingsForm {...props} settings={props.settings} /> : <LoadingState />}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PanelHeader() {
-  return (
-    <CardHeader className="pb-0">
-      <CardDescription>Settings</CardDescription>
-      <CardTitle className="flex items-center gap-2 text-xl">
-        <Settings className="size-5 text-primary" />
-        设置
-      </CardTitle>
-    </CardHeader>
+    <div className={cn("settings-card", props.className)}>
+      {props.settings ? <SettingsForm {...props} settings={props.settings} /> : <LoadingState />}
+    </div>
   );
 }
 
 function LoadingState() {
-  return (
-    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground md:col-span-2">
-      正在加载桌面设置...
-    </div>
-  );
+  return <div className="settings-empty">正在加载桌面设置...</div>;
 }
 
 function SettingsForm(props: SettingsFormProps) {
   return (
     <>
-      <MonitorToggle {...props} />
-      <AutostartToggle {...props} />
-      <NumberSetting
-        label="保留天数"
-        min={1}
-        value={props.settings.retentionDays}
-        onChange={(retentionDays) => props.onSettingsChange({ ...props.settings, retentionDays })}
+      <SwitchRow
+        checked={props.settings.monitorEnabled}
+        description="开启后自动捕获系统剪贴板文本。"
+        disabled={props.isBusy}
+        label="剪贴板监听"
+        onChange={(monitorEnabled) => props.onSettingsChange({ ...props.settings, monitorEnabled })}
       />
-      <NumberSetting
-        label="最大记录数"
-        min={1}
-        value={props.settings.maxRecordCount}
-        onChange={(maxRecordCount) => props.onSettingsChange({ ...props.settings, maxRecordCount })}
+      <SwitchRow
+        checked={props.settings.ignorePasswordLikeText}
+        description="疑似 JWT、API Key、长 token 会按敏感内容跳过。"
+        disabled={props.isBusy}
+        label="敏感内容过滤"
+        onChange={(ignorePasswordLikeText) => props.onSettingsChange({ ...props.settings, ignorePasswordLikeText })}
       />
-      <NumberSetting
-        label="单条文本上限"
-        min={1}
-        value={props.settings.maxTextLength}
-        onChange={(maxTextLength) => props.onSettingsChange({ ...props.settings, maxTextLength })}
+      <SwitchRow
+        checked={props.settings.autostartEnabled}
+        description="随系统启动后在后台运行。"
+        disabled={props.isBusy}
+        label="开机启动"
+        onChange={(autostartEnabled) => props.onSettingsChange({ ...props.settings, autostartEnabled })}
       />
-      <SecretFilterToggle {...props} />
-      <CustomSecretPatternsSetting
-        isBusy={props.isBusy}
-        patterns={props.settings.customSecretPatterns}
-        onChange={(customSecretPatterns) => props.onSettingsChange({ ...props.settings, customSecretPatterns })}
-      />
-      <StorageDirSetting
-        isBusy={props.isBusy}
-        storageDir={props.settings.storageDir}
-        onChange={(storageDir) => props.onSettingsChange({ ...props.settings, storageDir })}
-      />
-      <MaintenanceAction isBusy={props.isBusy} onPurgeDeletedItems={props.onPurgeDeletedItems} />
-      <Button className="h-auto rounded-xl py-3 md:col-span-2" variant="outline" onClick={props.onHideWindow}>
-        <Minimize2 className="size-4" />
-        隐藏到托盘
-      </Button>
+      <RetentionRow {...props} />
+      <LimitRow {...props} />
+      <StorageDirRow {...props} />
+      <PatternRow {...props} />
+      <ActionRow label="数据维护" description="物理删除已移入回收状态的记录并压缩数据库。">
+        <Button className="settings-button" disabled={props.isBusy} size="sm" variant="outline" onClick={props.onPurgeDeletedItems}>
+          清理
+        </Button>
+      </ActionRow>
+      <ActionRow label="托盘运行" description="隐藏主窗口，继续在后台监听剪贴板。">
+        <Button className="settings-button" size="sm" variant="outline" onClick={props.onHideWindow}>
+          隐藏
+        </Button>
+      </ActionRow>
     </>
   );
 }
 
-function MonitorToggle({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+function RetentionRow(props: SettingsFormProps) {
   return (
-    <SwitchSetting
-      checked={settings.monitorEnabled}
-      description="开启后自动捕获系统剪贴板文本"
-      disabled={isBusy}
-      label="剪贴板监听"
-      onChange={(monitorEnabled) => onSettingsChange({ ...settings, monitorEnabled })}
-    />
+    <ActionRow label="默认保留时长" description="超过期限的非固定记录自动清理。">
+      <NumberInput
+        min={1}
+        suffix="天"
+        value={props.settings.retentionDays}
+        onChange={(retentionDays) => props.onSettingsChange({ ...props.settings, retentionDays })}
+      />
+    </ActionRow>
   );
 }
 
-function SecretFilterToggle({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+function LimitRow(props: SettingsFormProps) {
   return (
-    <SwitchSetting
-      checked={settings.ignorePasswordLikeText}
-      description="跳过疑似 JWT、API Key、长 token"
-      disabled={isBusy}
-      label="敏感内容过滤"
-      onChange={(ignorePasswordLikeText) => onSettingsChange({ ...settings, ignorePasswordLikeText })}
-    />
+    <ActionRow label="记录容量" description="控制最大记录数和单条文本长度。">
+      <div className="settings-inline-inputs">
+        <NumberInput
+          min={1}
+          suffix="条"
+          value={props.settings.maxRecordCount}
+          onChange={(maxRecordCount) => props.onSettingsChange({ ...props.settings, maxRecordCount })}
+        />
+        <NumberInput
+          min={1}
+          suffix="字"
+          value={props.settings.maxTextLength}
+          onChange={(maxTextLength) => props.onSettingsChange({ ...props.settings, maxTextLength })}
+        />
+      </div>
+    </ActionRow>
   );
 }
 
-function AutostartToggle({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+function StorageDirRow({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+  const [draft, setDraft] = useState(settings.storageDir);
+  const [errorMessage, setErrorMessage] = useState("");
+  const hasChanged = draft.trim() !== settings.storageDir;
+
+  useEffect(() => {
+    setDraft(settings.storageDir);
+    setErrorMessage("");
+  }, [settings.storageDir]);
+
   return (
-    <SwitchSetting
-      checked={settings.autostartEnabled}
-      description="随系统启动后台工具"
-      disabled={isBusy}
-      label="开机启动"
-      onChange={(autostartEnabled) => onSettingsChange({ ...settings, autostartEnabled })}
-    />
+    <div className="setting vertical">
+      <SettingText label="本地存储目录" description="留空使用默认应用数据目录；切换目录不会自动迁移旧数据。" />
+      <div className="settings-storage-row">
+        <input
+          className="settings-text-input"
+          disabled={isBusy}
+          placeholder="例如 D:\\ClipboardData"
+          value={draft}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+        />
+        <Button className="settings-button" disabled={isBusy} size="sm" variant="outline" onClick={() => void selectDirectory(setDraft)}>
+          选择
+        </Button>
+        <Button
+          className="settings-button"
+          disabled={isBusy || !hasChanged}
+          size="sm"
+          onClick={() => void saveStorageDir(draft, settings, onSettingsChange, setErrorMessage)}
+        >
+          保存
+        </Button>
+      </div>
+      {errorMessage ? <p className="settings-error">{errorMessage}</p> : null}
+    </div>
   );
 }
 
-function SwitchSetting({
+function PatternRow(props: SettingsFormProps) {
+  return (
+    <div className="setting vertical">
+      <SettingText label="自定义敏感正则" description="每行一条正则；匹配内容会按敏感内容跳过。" />
+      <textarea
+        className="settings-pattern-input"
+        disabled={props.isBusy}
+        placeholder="例如 ^corp_[A-Za-z0-9]{24}$"
+        value={props.settings.customSecretPatterns}
+        onChange={(event) => props.onSettingsChange({ ...props.settings, customSecretPatterns: event.currentTarget.value })}
+      />
+    </div>
+  );
+}
+
+function SwitchRow({
   checked,
   description,
   disabled,
@@ -152,94 +175,46 @@ function SwitchSetting({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border bg-background/60 p-3">
-      <div>
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-muted-foreground">{description}</div>
-      </div>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+    <ActionRow label={label} description={description}>
+      <Switch className="settings-switch" checked={checked} disabled={disabled} onCheckedChange={onChange} />
+    </ActionRow>
+  );
+}
+
+function ActionRow({ children, description, label }: { children: ReactNode; description: string; label: string }) {
+  return (
+    <div className="setting">
+      <SettingText label={label} description={description} />
+      <div className="setting-control">{children}</div>
     </div>
   );
 }
 
-function NumberSetting({
-  label,
+function SettingText({ description, label }: { description: string; label: string }) {
+  return (
+    <div className="setting-text">
+      <b>{label}</b>
+      <small>{description}</small>
+    </div>
+  );
+}
+
+function NumberInput({
   min,
+  suffix,
   value,
   onChange,
 }: {
-  label: string;
   min: number;
+  suffix: string;
   value: number;
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-xl border bg-background/60 p-3">
-      <span className="flex items-center gap-2 text-sm font-medium">
-        {label}
-        <Badge variant="outline">{value}</Badge>
-      </span>
-      <input
-        className="h-8 w-20 rounded-md border bg-background px-2 text-right text-sm outline-none focus:ring-2 focus:ring-ring/40"
-        min={min}
-        type="number"
-        value={value}
-        onChange={(event) => onChange(normalizeNumber(event.currentTarget.value, min))}
-      />
+    <label className="settings-number">
+      <input min={min} type="number" value={value} onChange={(event) => onChange(normalizeNumber(event.currentTarget.value, min))} />
+      <span>{suffix}</span>
     </label>
-  );
-}
-
-function StorageDirSetting({
-  isBusy,
-  storageDir,
-  onChange,
-}: {
-  isBusy: boolean;
-  storageDir: string;
-  onChange: (storageDir: string) => void;
-}) {
-  const [draft, setDraft] = useState(storageDir);
-  const [errorMessage, setErrorMessage] = useState("");
-  const hasChanged = draft.trim() !== storageDir;
-
-  useEffect(() => {
-    setDraft(storageDir);
-    setErrorMessage("");
-  }, [storageDir]);
-
-  return (
-    <div className="space-y-2 rounded-xl border bg-background/60 p-3 md:col-span-2">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium">本地存储目录</div>
-          <div className="text-xs text-muted-foreground">留空使用默认应用数据目录</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button disabled={isBusy} size="sm" variant="outline" onClick={() => void selectDirectory(setDraft)}>
-            选择目录
-          </Button>
-          <Button
-            disabled={isBusy || !hasChanged}
-            size="sm"
-            onClick={() => void saveStorageDir(draft, onChange, setErrorMessage)}
-          >
-            保存路径
-          </Button>
-        </div>
-      </div>
-      <input
-        className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-        disabled={isBusy}
-        placeholder="例如 D:\\ClipboardData"
-        value={draft}
-        onChange={(event) => setDraft(event.currentTarget.value)}
-      />
-      {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
-      <p className="text-xs text-muted-foreground">
-        应用会在该目录下创建 clipboard.sqlite；切换目录不会自动迁移旧数据。
-      </p>
-    </div>
   );
 }
 
@@ -252,14 +227,15 @@ async function selectDirectory(setDraft: (value: string) => void) {
 
 async function saveStorageDir(
   draft: string,
-  onChange: (storageDir: string) => void,
+  settings: DesktopSettings,
+  onChange: (settings: DesktopSettings) => void,
   setErrorMessage: (value: string) => void,
 ) {
   const storageDir = draft.trim();
   try {
     await validateStorageDir(storageDir);
     setErrorMessage("");
-    onChange(storageDir);
+    onChange({ ...settings, storageDir });
   } catch (error) {
     setErrorMessage(String(error));
   }
