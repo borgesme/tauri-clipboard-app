@@ -125,7 +125,10 @@ pub fn update_desktop_settings(
     settings: DesktopSettingsUpdate,
     state: State<'_, ClipboardState>,
 ) -> Result<DesktopSettings, ClipboardError> {
-    set_autostart_enabled(&app_handle, settings.autostart_enabled)?;
+    let current_autostart_enabled = autostart_enabled(&app_handle)?;
+    if let Some(enabled) = autostart_change(current_autostart_enabled, settings.autostart_enabled) {
+        set_autostart_enabled(&app_handle, enabled)?;
+    }
     let autostart_enabled = autostart_enabled(&app_handle)?;
     state.0.update_desktop_settings(settings, autostart_enabled)
 }
@@ -157,6 +160,13 @@ fn set_autostart_enabled(app_handle: &AppHandle, enabled: bool) -> Result<(), Cl
     result.map_err(|error| ClipboardError::Runtime(error.to_string()))
 }
 
+fn autostart_change(current: bool, requested: bool) -> Option<bool> {
+    if current == requested {
+        return None;
+    }
+    Some(requested)
+}
+
 fn emit_deleted(app_handle: &AppHandle, id: Option<i64>, date: Option<String>) {
     let event = ClipboardDeletedEvent { id, date };
     if let Err(error) = app_handle.emit("clipboard:item-deleted", event) {
@@ -167,5 +177,22 @@ fn emit_deleted(app_handle: &AppHandle, id: Option<i64>, date: Option<String>) {
 fn emit_monitor_status(app_handle: &AppHandle, status: ClipboardMonitorStatus) {
     if let Err(error) = app_handle.emit("clipboard:monitor-status-changed", status) {
         eprintln!("failed to emit clipboard monitor status event: {error}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::autostart_change;
+
+    #[test]
+    fn autostart_change_is_skipped_when_state_is_unchanged() {
+        assert_eq!(None, autostart_change(false, false));
+        assert_eq!(None, autostart_change(true, true));
+    }
+
+    #[test]
+    fn autostart_change_is_requested_only_when_state_changes() {
+        assert_eq!(Some(true), autostart_change(false, true));
+        assert_eq!(Some(false), autostart_change(true, false));
     }
 }
