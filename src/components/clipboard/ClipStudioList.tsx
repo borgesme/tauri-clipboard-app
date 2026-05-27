@@ -165,11 +165,11 @@ function ClipRow({
       <span className="clip-row-main">
         <span className="clip-row-title">
           {item.preview || "空白文本"}
-          {item.copyCount > 1 ? <span className="clip-tag">复制 {item.copyCount} 次</span> : null}
         </span>
         <span className="clip-preview">{item.content}</span>
         <span className="clip-meta">
           <span className={cn("clip-tag", kind === "secret" && "warn")}>{getClipKindLabel(kind)}</span>
+          {item.copyCount > 1 ? <span className="clip-tag">复制 {item.copyCount} 次</span> : null}
           <span>{formatTime(item.lastCopiedAt)}</span>
           <span>{item.content.length} 字符</span>
         </span>
