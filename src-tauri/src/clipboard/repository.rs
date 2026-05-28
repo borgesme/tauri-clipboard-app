@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use super::error::ClipboardError;
@@ -8,12 +6,7 @@ use super::models::{ClipboardDateGroup, ClipboardItem};
 
 const CONTENT_TYPE_TEXT: &str = "text";
 
-pub fn init_database(path: &Path) -> Result<(), ClipboardError> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    let connection = Connection::open(path)?;
+pub fn init_schema(connection: &Connection) -> Result<(), ClipboardError> {
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS clipboard_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,27 +31,26 @@ pub fn init_database(path: &Path) -> Result<(), ClipboardError> {
             updated_at TEXT NOT NULL
         );",
     )?;
-
     Ok(())
 }
 
 pub fn upsert_text_item(
-    path: &Path,
+    connection: &Connection,
     content: &str,
     content_hash: &str,
     now: &str,
 ) -> Result<ClipboardItem, ClipboardError> {
-    let connection = Connection::open(path)?;
-    if let Some(id) = find_active_id_by_hash(&connection, content_hash)? {
-        update_existing_item(&connection, id, now)?;
-        return get_item_by_id_with_connection(&connection, id);
+    if let Some(id) = find_active_id_by_hash(connection, content_hash)? {
+        update_existing_item(connection, id, now)?;
+        return get_item_by_id_with_connection(connection, id);
     }
-    insert_text_item(&connection, content, content_hash, now)?;
-    get_item_by_id_with_connection(&connection, connection.last_insert_rowid())
+    insert_text_item(connection, content, content_hash, now)?;
+    get_item_by_id_with_connection(connection, connection.last_insert_rowid())
 }
 
-pub fn list_date_groups(path: &Path) -> Result<Vec<ClipboardDateGroup>, ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn list_date_groups(
+    connection: &Connection,
+) -> Result<Vec<ClipboardDateGroup>, ClipboardError> {
     let mut statement = connection.prepare(
         "SELECT substr(created_at, 1, 10) AS date, COUNT(*) AS count
          FROM clipboard_items
@@ -76,8 +68,10 @@ pub fn list_date_groups(path: &Path) -> Result<Vec<ClipboardDateGroup>, Clipboar
         .map_err(ClipboardError::from)
 }
 
-pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn list_items_by_date(
+    connection: &Connection,
+    date: &str,
+) -> Result<Vec<ClipboardItem>, ClipboardError> {
     let mut statement = connection.prepare(
         "SELECT id, content_type, content, preview, content_hash, created_at, last_copied_at, copy_count
          FROM clipboard_items
@@ -89,12 +83,14 @@ pub fn list_items_by_date(path: &Path, date: &str) -> Result<Vec<ClipboardItem>,
         .map_err(ClipboardError::from)
 }
 
-pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
+pub fn search_items(
+    connection: &Connection,
+    keyword: &str,
+) -> Result<Vec<ClipboardItem>, ClipboardError> {
     let trimmed = keyword.trim();
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
-    let connection = Connection::open(path)?;
     let pattern = format!("%{trimmed}%");
     let mut statement = connection.prepare(
         "SELECT id, content_type, content, preview, content_hash, created_at, last_copied_at, copy_count
@@ -107,13 +103,18 @@ pub fn search_items(path: &Path, keyword: &str) -> Result<Vec<ClipboardItem>, Cl
         .map_err(ClipboardError::from)
 }
 
-pub fn get_item_by_id(path: &Path, id: i64) -> Result<ClipboardItem, ClipboardError> {
-    let connection = Connection::open(path)?;
-    get_item_by_id_with_connection(&connection, id)
+pub fn get_item_by_id(
+    connection: &Connection,
+    id: i64,
+) -> Result<ClipboardItem, ClipboardError> {
+    get_item_by_id_with_connection(connection, id)
 }
 
-pub fn soft_delete_item(path: &Path, id: i64, now: &str) -> Result<(), ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn soft_delete_item(
+    connection: &Connection,
+    id: i64,
+    now: &str,
+) -> Result<(), ClipboardError> {
     let changed = connection.execute(
         "UPDATE clipboard_items SET deleted_at = ?1 WHERE id = ?2 AND deleted_at IS NULL",
         params![now, id],
@@ -125,11 +126,10 @@ pub fn soft_delete_item(path: &Path, id: i64, now: &str) -> Result<(), Clipboard
 }
 
 pub fn soft_delete_items_by_date(
-    path: &Path,
+    connection: &Connection,
     date: &str,
     now: &str,
 ) -> Result<usize, ClipboardError> {
-    let connection = Connection::open(path)?;
     let changed = connection.execute(
         "UPDATE clipboard_items
          SET deleted_at = ?1
@@ -139,8 +139,11 @@ pub fn soft_delete_items_by_date(
     Ok(changed)
 }
 
-pub fn get_i64_setting(path: &Path, key: &str, default: i64) -> Result<i64, ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn get_i64_setting(
+    connection: &Connection,
+    key: &str,
+    default: i64,
+) -> Result<i64, ClipboardError> {
     let value = connection
         .query_row(
             "SELECT value FROM app_settings WHERE key = ?1",
@@ -153,8 +156,11 @@ pub fn get_i64_setting(path: &Path, key: &str, default: i64) -> Result<i64, Clip
         .unwrap_or(default))
 }
 
-pub fn get_string_setting(path: &Path, key: &str, default: &str) -> Result<String, ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn get_string_setting(
+    connection: &Connection,
+    key: &str,
+    default: &str,
+) -> Result<String, ClipboardError> {
     let value = connection
         .query_row(
             "SELECT value FROM app_settings WHERE key = ?1",
@@ -165,8 +171,12 @@ pub fn get_string_setting(path: &Path, key: &str, default: &str) -> Result<Strin
     Ok(value.unwrap_or_else(|| default.to_string()))
 }
 
-pub fn set_setting(path: &Path, key: &str, value: &str, now: &str) -> Result<(), ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn set_setting(
+    connection: &Connection,
+    key: &str,
+    value: &str,
+    now: &str,
+) -> Result<(), ClipboardError> {
     connection.execute(
         "INSERT INTO app_settings (key, value, updated_at)
          VALUES (?1, ?2, ?3)
@@ -177,14 +187,13 @@ pub fn set_setting(path: &Path, key: &str, value: &str, now: &str) -> Result<(),
 }
 
 pub fn cleanup_items(
-    path: &Path,
+    connection: &Connection,
     cutoff_date: &str,
     max_record_count: i64,
     now: &str,
 ) -> Result<usize, ClipboardError> {
-    let connection = Connection::open(path)?;
-    let by_date = cleanup_by_date(&connection, cutoff_date, now)?;
-    let by_count = cleanup_by_count(&connection, max_record_count, now)?;
+    let by_date = cleanup_by_date(connection, cutoff_date, now)?;
+    let by_count = cleanup_by_count(connection, max_record_count, now)?;
     Ok(by_date + by_count)
 }
 

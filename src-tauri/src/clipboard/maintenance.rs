@@ -1,11 +1,8 @@
-use std::path::Path;
-
 use rusqlite::Connection;
 
 use super::error::ClipboardError;
 
-pub fn purge_deleted_items(path: &Path) -> Result<usize, ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn purge_deleted_items(connection: &Connection) -> Result<usize, ClipboardError> {
     connection
         .execute(
             "DELETE FROM clipboard_items WHERE deleted_at IS NOT NULL",
@@ -14,8 +11,7 @@ pub fn purge_deleted_items(path: &Path) -> Result<usize, ClipboardError> {
         .map_err(ClipboardError::from)
 }
 
-pub fn vacuum_database(path: &Path) -> Result<(), ClipboardError> {
-    let connection = Connection::open(path)?;
+pub fn vacuum_database(connection: &Connection) -> Result<(), ClipboardError> {
     connection.execute_batch("VACUUM")?;
     Ok(())
 }

@@ -77,23 +77,21 @@ fn update_settings_switches_to_custom_storage_database() {
     let custom_path = custom_dir.join("clipboard.sqlite");
     let service = ClipboardService::new(default_path.clone()).unwrap();
 
-    repository::upsert_text_item(
-        &default_path,
-        "default",
-        "hash-1",
-        "2026-05-26T10:00:00+08:00",
-    )
-    .unwrap();
+    {
+        let conn = super::service_runtime::open_connection(&default_path).unwrap();
+        repository::init_schema(&conn).unwrap();
+        repository::upsert_text_item(&conn, "default", "hash-1", "2026-05-26T10:00:00+08:00")
+            .unwrap();
+    }
     let settings = service
         .update_desktop_settings(desktop_update(custom_dir_text.clone()), false)
         .unwrap();
-    repository::upsert_text_item(
-        &custom_path,
-        "custom",
-        "hash-2",
-        "2026-05-26T11:00:00+08:00",
-    )
-    .unwrap();
+    {
+        let conn = super::service_runtime::open_connection(&custom_path).unwrap();
+        repository::init_schema(&conn).unwrap();
+        repository::upsert_text_item(&conn, "custom", "hash-2", "2026-05-26T11:00:00+08:00")
+            .unwrap();
+    }
 
     assert_eq!(custom_dir_text, settings.storage_dir);
     assert!(service.search_items("default").unwrap().is_empty());
@@ -106,27 +104,29 @@ fn startup_uses_storage_dir_from_default_database() {
     let custom_dir = temp_storage_dir("startup-custom");
     let custom_dir_text = custom_dir.to_string_lossy().into_owned();
     let custom_path = custom_dir.join("clipboard.sqlite");
-    repository::init_database(&default_path).unwrap();
-    settings::update_stored_settings(
-        &default_path,
-        false,
-        15,
-        50,
-        1024,
-        true,
-        "",
-        &custom_dir_text,
-    )
-    .unwrap();
+    {
+        let conn = super::service_runtime::open_connection(&default_path).unwrap();
+        repository::init_schema(&conn).unwrap();
+        settings::update_stored_settings(
+            &conn,
+            false,
+            15,
+            50,
+            1024,
+            true,
+            "",
+            &custom_dir_text,
+        )
+        .unwrap();
+    }
 
     let service = ClipboardService::new(default_path).unwrap();
-    repository::upsert_text_item(
-        &custom_path,
-        "custom",
-        "hash-1",
-        "2026-05-26T11:00:00+08:00",
-    )
-    .unwrap();
+    {
+        let conn = super::service_runtime::open_connection(&custom_path).unwrap();
+        repository::init_schema(&conn).unwrap();
+        repository::upsert_text_item(&conn, "custom", "hash-1", "2026-05-26T11:00:00+08:00")
+            .unwrap();
+    }
     let settings = service.desktop_settings(false).unwrap();
 
     assert_eq!(15, settings.retention_days);
@@ -231,9 +231,10 @@ fn custom_secret_pattern_requires_secret_filter_enabled() {
 #[test]
 fn invalid_custom_secret_pattern_is_rejected() {
     let path = temp_database_path("invalid-pattern");
-    repository::init_database(&path).unwrap();
+    let conn = super::service_runtime::open_connection(&path).unwrap();
+    repository::init_schema(&conn).unwrap();
 
-    let result = settings::update_stored_settings(&path, true, 30, 1000, 20_000, false, "[", "");
+    let result = settings::update_stored_settings(&conn, true, 30, 1000, 20_000, false, "[", "");
 
     assert!(result.is_err());
 }

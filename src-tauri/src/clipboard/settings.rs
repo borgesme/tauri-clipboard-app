@@ -1,8 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use chrono::{Duration, Local};
 use regex::Regex;
+use rusqlite::Connection;
 
 use super::error::ClipboardError;
 use super::models::{ClipboardSkipReason, StoredSettings};
@@ -17,44 +18,44 @@ const MIN_SETTING_VALUE: i64 = 1;
 const DEFAULT_MONITOR_ENABLED: bool = true;
 const DEFAULT_IGNORE_PASSWORD_LIKE_TEXT: bool = false;
 
-pub fn get_stored_settings(path: &Path) -> Result<StoredSettings, ClipboardError> {
+pub fn get_stored_settings(connection: &Connection) -> Result<StoredSettings, ClipboardError> {
     Ok(StoredSettings {
         monitor_enabled: repository::get_i64_setting(
-            path,
+            connection,
             "monitor_enabled",
             bool_to_setting(DEFAULT_MONITOR_ENABLED),
         )? == 1,
         retention_days: repository::get_i64_setting(
-            path,
+            connection,
             "retention_days",
             DEFAULT_RETENTION_DAYS,
         )?,
         max_record_count: repository::get_i64_setting(
-            path,
+            connection,
             "max_record_count",
             DEFAULT_MAX_RECORD_COUNT,
         )?,
         max_text_length: repository::get_i64_setting(
-            path,
+            connection,
             "max_text_length",
             DEFAULT_MAX_TEXT_LENGTH,
         )?,
         ignore_password_like_text: repository::get_i64_setting(
-            path,
+            connection,
             "ignore_password_like_text",
             bool_to_setting(DEFAULT_IGNORE_PASSWORD_LIKE_TEXT),
         )? == 1,
         custom_secret_patterns: repository::get_string_setting(
-            path,
+            connection,
             "custom_secret_patterns",
             DEFAULT_CUSTOM_SECRET_PATTERNS,
         )?,
-        storage_dir: repository::get_string_setting(path, "storage_dir", DEFAULT_STORAGE_DIR)?,
+        storage_dir: repository::get_string_setting(connection, "storage_dir", DEFAULT_STORAGE_DIR)?,
     })
 }
 
 pub fn update_stored_settings(
-    path: &Path,
+    connection: &Connection,
     monitor_enabled: bool,
     retention_days: i64,
     max_record_count: i64,
@@ -75,49 +76,52 @@ pub fn update_stored_settings(
     };
     let now = Local::now().to_rfc3339();
     repository::set_setting(
-        path,
+        connection,
         "monitor_enabled",
         &bool_to_setting(settings.monitor_enabled).to_string(),
         &now,
     )?;
     repository::set_setting(
-        path,
+        connection,
         "retention_days",
         &settings.retention_days.to_string(),
         &now,
     )?;
     repository::set_setting(
-        path,
+        connection,
         "max_record_count",
         &settings.max_record_count.to_string(),
         &now,
     )?;
     repository::set_setting(
-        path,
+        connection,
         "max_text_length",
         &settings.max_text_length.to_string(),
         &now,
     )?;
     repository::set_setting(
-        path,
+        connection,
         "ignore_password_like_text",
         &bool_to_setting(settings.ignore_password_like_text).to_string(),
         &now,
     )?;
     repository::set_setting(
-        path,
+        connection,
         "custom_secret_patterns",
         &settings.custom_secret_patterns,
         &now,
     )?;
-    repository::set_setting(path, "storage_dir", &settings.storage_dir, &now)?;
+    repository::set_setting(connection, "storage_dir", &settings.storage_dir, &now)?;
     Ok(settings)
 }
 
-pub fn update_monitor_enabled(path: &Path, enabled: bool) -> Result<(), ClipboardError> {
+pub fn update_monitor_enabled(
+    connection: &Connection,
+    enabled: bool,
+) -> Result<(), ClipboardError> {
     let now = Local::now().to_rfc3339();
     repository::set_setting(
-        path,
+        connection,
         "monitor_enabled",
         &bool_to_setting(enabled).to_string(),
         &now,
@@ -140,12 +144,20 @@ pub fn validate_storage_dir(storage_dir: &str) -> Result<(), ClipboardError> {
     Ok(())
 }
 
-pub fn apply_retention_policy(path: &Path, settings_path: &Path) -> Result<usize, ClipboardError> {
-    let settings = get_stored_settings(settings_path)?;
+pub fn apply_retention_policy(
+    items_connection: &Connection,
+    settings_connection: &Connection,
+) -> Result<usize, ClipboardError> {
+    let settings = get_stored_settings(settings_connection)?;
     let now = Local::now().to_rfc3339();
     let cutoff = Local::now() - Duration::days(settings.retention_days);
     let cutoff_date = cutoff.format("%Y-%m-%d").to_string();
-    repository::cleanup_items(path, &cutoff_date, settings.max_record_count, &now)
+    repository::cleanup_items(
+        items_connection,
+        &cutoff_date,
+        settings.max_record_count,
+        &now,
+    )
 }
 
 pub fn content_skip_reason(

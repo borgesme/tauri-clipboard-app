@@ -12,7 +12,7 @@ use super::models::{
 };
 use super::repository;
 use super::service_runtime::{
-    now_iso, read_clipboard_text, resolve_database_path, skip_outcome, AppWriteGuard,
+    self, now_iso, read_clipboard_text, resolve_database_path, skip_outcome, AppWriteGuard,
 };
 use super::settings;
 
@@ -26,10 +26,12 @@ pub struct ClipboardService {
 
 impl ClipboardService {
     pub fn new(default_database_path: PathBuf) -> Result<Self, ClipboardError> {
-        repository::init_database(&default_database_path)?;
-        let stored = settings::get_stored_settings(&default_database_path)?;
+        let settings_conn = service_runtime::open_connection(&default_database_path)?;
+        repository::init_schema(&settings_conn)?;
+        let stored = settings::get_stored_settings(&settings_conn)?;
         let database_path = resolve_database_path(&default_database_path, &stored.storage_dir);
-        repository::init_database(&database_path)?;
+        let items_conn = service_runtime::open_connection(&database_path)?;
+        repository::init_schema(&items_conn)?;
         Ok(Self {
             default_database_path,
             database_path: Mutex::new(database_path),
@@ -48,7 +50,8 @@ impl ClipboardService {
         if content.is_empty() {
             return Ok(skip_outcome(ClipboardSkipReason::Empty, 0, 0));
         }
-        let stored_settings = settings::get_stored_settings(&self.default_database_path)?;
+        let settings_conn = service_runtime::open_connection(&self.default_database_path)?;
+        let stored_settings = settings::get_stored_settings(&settings_conn)?;
         if let Some(reason) = settings::content_skip_reason(&content, &stored_settings) {
             return Ok(skip_outcome(
                 reason,
@@ -60,26 +63,31 @@ impl ClipboardService {
         if let Some(reason) = self.skip_hash_reason(&hash)? {
             return Ok(skip_outcome(reason, content.len() as i64, 0));
         }
-        let item = repository::upsert_text_item(&database_path, &content, &hash, &now_iso())?;
+        let items_conn = service_runtime::open_connection(&database_path)?;
+        let item = repository::upsert_text_item(&items_conn, &content, &hash, &now_iso())?;
         self.remember_seen_hash(hash)?;
         self.apply_retention_policy(&database_path)?;
         Ok(CaptureOutcome::Item(item))
     }
 
     pub fn list_date_groups(&self) -> Result<Vec<ClipboardDateGroup>, ClipboardError> {
-        repository::list_date_groups(&self.active_database_path()?)
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::list_date_groups(&conn)
     }
 
     pub fn list_items_by_date(&self, date: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
-        repository::list_items_by_date(&self.active_database_path()?, date)
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::list_items_by_date(&conn, date)
     }
 
     pub fn search_items(&self, keyword: &str) -> Result<Vec<ClipboardItem>, ClipboardError> {
-        repository::search_items(&self.active_database_path()?, keyword)
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::search_items(&conn, keyword)
     }
 
     pub fn get_item(&self, id: i64) -> Result<ClipboardItem, ClipboardError> {
-        repository::get_item_by_id(&self.active_database_path()?, id)
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::get_item_by_id(&conn, id)
     }
 
     pub fn copy_item(&self, id: i64) -> Result<(), ClipboardError> {
@@ -92,18 +100,21 @@ impl ClipboardService {
     }
 
     pub fn delete_item(&self, id: i64) -> Result<(), ClipboardError> {
-        repository::soft_delete_item(&self.active_database_path()?, id, &now_iso())
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::soft_delete_item(&conn, id, &now_iso())
     }
 
     pub fn clear_items_by_date(&self, date: &str) -> Result<usize, ClipboardError> {
-        repository::soft_delete_items_by_date(&self.active_database_path()?, date, &now_iso())
+        let conn = service_runtime::open_connection(&self.active_database_path()?)?;
+        repository::soft_delete_items_by_date(&conn, date, &now_iso())
     }
 
     pub fn purge_deleted_items(&self, vacuum: bool) -> Result<usize, ClipboardError> {
         let database_path = self.active_database_path()?;
-        let removed = maintenance::purge_deleted_items(&database_path)?;
+        let conn = service_runtime::open_connection(&database_path)?;
+        let removed = maintenance::purge_deleted_items(&conn)?;
         if vacuum {
-            maintenance::vacuum_database(&database_path)?;
+            maintenance::vacuum_database(&conn)?;
         }
         Ok(removed)
     }
@@ -115,7 +126,8 @@ impl ClipboardService {
         if enabled {
             self.seed_current_clipboard_hash()?;
         }
-        settings::update_monitor_enabled(&self.default_database_path, enabled)?;
+        let conn = service_runtime::open_connection(&self.default_database_path)?;
+        settings::update_monitor_enabled(&conn, enabled)?;
         let mut guard = self.lock_monitor_enabled()?;
         *guard = enabled;
         Ok(ClipboardMonitorStatus { enabled })
@@ -131,7 +143,8 @@ impl ClipboardService {
         &self,
         autostart_enabled: bool,
     ) -> Result<DesktopSettings, ClipboardError> {
-        let stored = settings::get_stored_settings(&self.default_database_path)?;
+        let conn = service_runtime::open_connection(&self.default_database_path)?;
+        let stored = settings::get_stored_settings(&conn)?;
         Ok(DesktopSettings {
             autostart_enabled,
             monitor_enabled: self.is_monitor_enabled()?,
@@ -152,9 +165,11 @@ impl ClipboardService {
         let storage_dir = update.storage_dir.trim().to_string();
         settings::validate_storage_dir(&storage_dir)?;
         let database_path = resolve_database_path(&self.default_database_path, &storage_dir);
-        repository::init_database(&database_path)?;
+        let items_conn = service_runtime::open_connection(&database_path)?;
+        repository::init_schema(&items_conn)?;
+        let settings_conn = service_runtime::open_connection(&self.default_database_path)?;
         let stored = settings::update_stored_settings(
-            &self.default_database_path,
+            &settings_conn,
             update.monitor_enabled,
             update.retention_days,
             update.max_record_count,
@@ -179,7 +194,9 @@ impl ClipboardService {
     }
 
     fn apply_retention_policy(&self, database_path: &Path) -> Result<(), ClipboardError> {
-        settings::apply_retention_policy(database_path, &self.default_database_path)?;
+        let items_conn = service_runtime::open_connection(database_path)?;
+        let settings_conn = service_runtime::open_connection(&self.default_database_path)?;
+        settings::apply_retention_policy(&items_conn, &settings_conn)?;
         Ok(())
     }
 
