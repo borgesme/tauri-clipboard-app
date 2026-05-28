@@ -17,6 +17,8 @@ use super::service_runtime::{
 };
 use super::settings;
 
+pub const RETENTION_TRIGGER_THRESHOLD: u32 = 50;
+
 pub struct ClipboardService {
     default_database_path: PathBuf,
     database_path: Mutex<PathBuf>,
@@ -25,6 +27,7 @@ pub struct ClipboardService {
     last_seen_hash: Mutex<Option<String>>,
     last_app_write: Mutex<Option<AppWriteGuard>>,
     monitor_enabled: Mutex<bool>,
+    captures_since_cleanup: Mutex<u32>,
 }
 
 impl ClipboardService {
@@ -43,6 +46,7 @@ impl ClipboardService {
             last_seen_hash: Mutex::new(None),
             last_app_write: Mutex::new(None),
             monitor_enabled: Mutex::new(stored.monitor_enabled),
+            captures_since_cleanup: Mutex::new(0),
         })
     }
 
@@ -74,7 +78,22 @@ impl ClipboardService {
             repository::upsert_text_item(&conn, &content, &hash, &now_iso())?
         };
         self.remember_seen_hash(hash)?;
-        self.run_retention()?;
+        let should_clean = {
+            let mut count = self
+                .captures_since_cleanup
+                .lock()
+                .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+            *count += 1;
+            if *count >= RETENTION_TRIGGER_THRESHOLD {
+                *count = 0;
+                true
+            } else {
+                false
+            }
+        };
+        if should_clean {
+            self.run_retention()?;
+        }
         Ok(CaptureOutcome::Item(item))
     }
 
@@ -221,6 +240,27 @@ impl ClipboardService {
         let settings_conn = self.lock_settings_conn()?;
         let items_conn = self.lock_items_conn()?;
         settings::apply_retention_policy(&items_conn, &settings_conn)?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn tick_capture_count_for_test(&self) -> Result<(), ClipboardError> {
+        let should_clean = {
+            let mut count = self
+                .captures_since_cleanup
+                .lock()
+                .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+            *count += 1;
+            if *count >= RETENTION_TRIGGER_THRESHOLD {
+                *count = 0;
+                true
+            } else {
+                false
+            }
+        };
+        if should_clean {
+            self.run_retention()?;
+        }
         Ok(())
     }
 
