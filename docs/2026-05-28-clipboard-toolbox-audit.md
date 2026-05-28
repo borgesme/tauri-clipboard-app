@@ -61,7 +61,7 @@
 
 ## 🟡 P1 — 性能与可维护性
 
-### 6. 数据库连接每次都新开
+### 6. 数据库连接每次都新开 ✅ 2026-05-28 已修复
 
 位置：`src-tauri/src/clipboard/repository.rs` 所有公共函数
 
@@ -69,7 +69,7 @@
 
 建议：持有 `Mutex<Connection>` 或引入 `r2d2_sqlite`。
 
-### 7. 保留策略每次写入都执行
+### 7. 保留策略每次写入都执行 ✅ 2026-05-28 已修复
 
 位置：`src-tauri/src/clipboard/service.rs:65`
 
