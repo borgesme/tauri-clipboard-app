@@ -165,7 +165,7 @@ fn content_skip_reason_distinguishes_too_long_and_secret_like() {
     assert_eq!(
         Some(ClipboardSkipReason::SecretLike),
         super::settings::content_skip_reason(
-            "abcDEFGH1234567890",
+            "abcDEFGH1234567890XY",
             &StoredSettingsForSecret::from(&settings)
         ),
     );

@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use chrono::{Duration, Local};
 use regex::Regex;
@@ -199,16 +200,51 @@ fn is_jwt_like(value: &str) -> bool {
 }
 
 fn looks_like_secret_token(value: &str) -> bool {
+    if value.len() < 20 {
+        return false;
+    }
     let allowed = value
         .chars()
         .filter(|char| char.is_ascii_alphanumeric() || matches!(char, '_' | '-' | '='))
         .count();
-    let letters = value
+    if allowed != value.len() {
+        return false;
+    }
+    let uppercase = value
         .chars()
-        .filter(|char| char.is_ascii_alphabetic())
+        .filter(|char| char.is_ascii_uppercase())
+        .count();
+    let lowercase = value
+        .chars()
+        .filter(|char| char.is_ascii_lowercase())
         .count();
     let digits = value.chars().filter(|char| char.is_ascii_digit()).count();
-    allowed == value.len() && letters >= 8 && digits >= 4
+    if uppercase < 2 || lowercase < 2 || digits < 2 {
+        return false;
+    }
+    if is_pure_hex(value) {
+        return false;
+    }
+    if is_uuid_format(value) {
+        return false;
+    }
+    true
+}
+
+fn is_pure_hex(value: &str) -> bool {
+    value.chars().all(|char| char.is_ascii_hexdigit())
+}
+
+fn is_uuid_format(value: &str) -> bool {
+    uuid_regex().is_match(value)
+}
+
+fn uuid_regex() -> &'static Regex {
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    REGEX.get_or_init(|| {
+        Regex::new(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+            .expect("UUID regex must compile")
+    })
 }
 
 fn sanitize_setting_value(value: i64) -> i64 {
@@ -220,5 +256,81 @@ fn bool_to_setting(value: bool) -> i64 {
         1
     } else {
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_password_like_text;
+
+    #[test]
+    fn rejects_git_commit_hash() {
+        assert!(!is_password_like_text("73778f4abc123def4567890abcdef1234567890ab"));
+    }
+
+    #[test]
+    fn rejects_sha256_hex() {
+        assert!(!is_password_like_text(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ));
+    }
+
+    #[test]
+    fn rejects_uuid() {
+        assert!(!is_password_like_text("aBcDeF01-2345-6789-AbCd-eF0123456789"));
+    }
+
+    #[test]
+    fn rejects_pure_uppercase_hex() {
+        assert!(!is_password_like_text("ABCDEF0123456789ABCDEF0123456789"));
+    }
+
+    #[test]
+    fn rejects_short_string() {
+        assert!(!is_password_like_text("abcDEF12"));
+    }
+
+    #[test]
+    fn rejects_whitespace_content() {
+        assert!(!is_password_like_text("hello world 12345 ABC"));
+    }
+
+    #[test]
+    fn accepts_github_pat_form() {
+        assert!(is_password_like_text(
+            "ghp_1234abCDEFghIJKL5678mnopQRstUVwxyz9012"
+        ));
+    }
+
+    #[test]
+    fn accepts_openai_style_key() {
+        assert!(is_password_like_text("sk_test_4eC39HqLyjWDarjtT1zdp7dc"));
+    }
+
+    #[test]
+    fn accepts_jwt_via_jwt_path() {
+        assert!(is_password_like_text(
+            "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        ));
+    }
+
+    #[test]
+    fn accepts_boundary_twenty_chars_mixed() {
+        assert!(is_password_like_text("Aa1Bb2Cc3Dd4Ee5Ff6Gg"));
+    }
+
+    #[test]
+    fn rejects_nineteen_chars_mixed() {
+        assert!(!is_password_like_text("Aa1Bb2Cc3Dd4Ee5Ff6G"));
+    }
+
+    #[test]
+    fn rejects_twenty_chars_without_mix() {
+        assert!(!is_password_like_text("aaaaaaaaaaaaaaaaaaaa"));
+    }
+
+    #[test]
+    fn rejects_aws_access_key_known_miss() {
+        assert!(!is_password_like_text("AKIAIOSFODNN7EXAMPLE"));
     }
 }
