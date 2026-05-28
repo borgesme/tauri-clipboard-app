@@ -223,6 +223,13 @@ impl ClipboardService {
 
         self.set_monitor_enabled_state(stored.monitor_enabled)?;
         self.run_retention()?;
+        {
+            let mut count = self
+                .captures_since_cleanup
+                .lock()
+                .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+            *count = 0;
+        }
 
         Ok(DesktopSettings {
             autostart_enabled,
@@ -262,6 +269,15 @@ impl ClipboardService {
             self.run_retention()?;
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn captures_count_for_test(&self) -> Result<u32, ClipboardError> {
+        let count = self
+            .captures_since_cleanup
+            .lock()
+            .map_err(|error| ClipboardError::Runtime(error.to_string()))?;
+        Ok(*count)
     }
 
     fn seed_current_clipboard_hash(&self) -> Result<(), ClipboardError> {

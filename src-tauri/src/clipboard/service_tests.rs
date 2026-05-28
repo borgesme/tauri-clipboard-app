@@ -302,3 +302,45 @@ fn retention_runs_only_after_threshold_captures() {
     let total_after: i64 = groups_after.iter().map(|g| g.count).sum();
     assert_eq!(5, total_after, "retention 触发后应裁剪到 max_record_count");
 }
+
+#[test]
+fn retention_counter_resets_after_settings_update() {
+    use super::service::RETENTION_TRIGGER_THRESHOLD;
+
+    let default_path = temp_database_path("counter-reset");
+    let service = ClipboardService::new(default_path).unwrap();
+
+    // 推进计数到 THRESHOLD - 1，刚好不触发
+    for _ in 0..(RETENTION_TRIGGER_THRESHOLD - 1) {
+        service.tick_capture_count_for_test().unwrap();
+    }
+
+    // 更新设置：应重置计数
+    service
+        .update_desktop_settings(
+            DesktopSettingsUpdate {
+                autostart_enabled: false,
+                monitor_enabled: true,
+                retention_days: 30,
+                max_record_count: 1000,
+                max_text_length: 20_000,
+                ignore_password_like_text: false,
+                custom_secret_patterns: String::new(),
+                storage_dir: String::new(),
+            },
+            false,
+        )
+        .unwrap();
+
+    // 再推进 THRESHOLD - 1 次，应仍不触发；若计数未重置则会触发
+    for _ in 0..(RETENTION_TRIGGER_THRESHOLD - 1) {
+        service.tick_capture_count_for_test().unwrap();
+    }
+
+    let count = service.captures_count_for_test().unwrap();
+    assert_eq!(
+        (RETENTION_TRIGGER_THRESHOLD - 1) as u32,
+        count,
+        "更新设置后计数应归零，再推进 N-1 次不应触发"
+    );
+}
