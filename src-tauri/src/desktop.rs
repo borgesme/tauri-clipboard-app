@@ -14,8 +14,9 @@ const MENU_SYSTEM_MOVE: &str = "system_move";
 const MENU_SYSTEM_SIZE: &str = "system_size";
 const MENU_OPEN_SETTINGS: &str = "open_settings";
 const EVENT_OPEN_SETTINGS: &str = "app:open-settings";
-const DEFAULT_WINDOW_WIDTH: f64 = 1100.0;
-const DEFAULT_WINDOW_HEIGHT: f64 = 720.0;
+// 与 tauri.conf.json `app.windows[0].width/height` 保持一致。
+const DEFAULT_WINDOW_WIDTH: f64 = 960.0;
+const DEFAULT_WINDOW_HEIGHT: f64 = 640.0;
 
 pub fn setup_desktop(app: &mut App) -> tauri::Result<()> {
     setup_close_to_tray(app);
