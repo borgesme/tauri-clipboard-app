@@ -333,4 +333,9 @@ mod tests {
     fn rejects_aws_access_key_known_miss() {
         assert!(!is_password_like_text("AKIAIOSFODNN7EXAMPLE"));
     }
+
+    #[test]
+    fn rejects_mixed_case_hex() {
+        assert!(!is_password_like_text("aBcDeF0123456789AbCd"));
+    }
 }
