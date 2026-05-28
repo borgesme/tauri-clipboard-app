@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use arboard::Clipboard;
 use chrono::Local;
+use rusqlite::Connection;
 
 use super::error::ClipboardError;
 use super::models::{CaptureOutcome, ClipboardSkipReason};
@@ -60,4 +61,17 @@ pub fn resolve_database_path(default_database_path: &Path, storage_dir: &str) ->
         return default_database_path.to_path_buf();
     }
     PathBuf::from(storage_dir).join(DATABASE_FILE_NAME)
+}
+
+pub fn open_connection(path: &Path) -> Result<Connection, ClipboardError> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let connection = Connection::open(path)?;
+    connection.execute_batch(
+        "PRAGMA journal_mode=WAL; \
+         PRAGMA synchronous=NORMAL; \
+         PRAGMA foreign_keys=ON;",
+    )?;
+    Ok(connection)
 }
