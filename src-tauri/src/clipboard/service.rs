@@ -210,15 +210,17 @@ impl ClipboardService {
             )?
         };
 
-        {
+        let needs_swap = {
+            let path_guard = self.lock_database_path()?;
+            new_database_path != *path_guard
+        };
+        if needs_swap {
+            let new_conn = service_runtime::open_connection(&new_database_path)?;
+            repository::init_schema(&new_conn)?;
             let mut path_guard = self.lock_database_path()?;
-            if new_database_path != *path_guard {
-                let new_conn = service_runtime::open_connection(&new_database_path)?;
-                repository::init_schema(&new_conn)?;
-                let mut items_guard = self.lock_items_conn()?;
-                *items_guard = new_conn;
-                *path_guard = new_database_path;
-            }
+            let mut items_guard = self.lock_items_conn()?;
+            *items_guard = new_conn;
+            *path_guard = new_database_path;
         }
 
         self.set_monitor_enabled_state(stored.monitor_enabled)?;
