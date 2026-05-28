@@ -39,7 +39,7 @@
 
 `package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` 都没升。完成 M1+M2+M3+P1/P2 后建议至少 `0.4.0`。
 
-### 4. 敏感内容误报率偏高
+### 4. 敏感内容误报率偏高 ✅ 2026-05-28 已修复
 
 位置：`src-tauri/src/clipboard/settings.rs:201` `looks_like_secret_token`
 
