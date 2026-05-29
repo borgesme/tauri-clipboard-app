@@ -77,7 +77,7 @@
 
 建议：改为按计数阈值或后台定时触发。
 
-### 8. 前端零单元测试
+### 8. 前端零单元测试 ✅ 2026-05-29 已修复
 
 `src/` 下没有任何 `*.test.ts(x)`，没装 Vitest。`useClipboardWorkspace`、`clipStudioHelpers`、`skipMessage` 等核心逻辑全裸奔。
 
