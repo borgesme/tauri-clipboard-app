@@ -5,9 +5,14 @@ import {
   onClipboardItemDeleted,
   onClipboardItemUpdated,
   onClipboardItemSkipped,
+  onClipboardMonitorError,
   onClipboardMonitorStatusChanged,
 } from "@/api/clipboard";
-import type { ClipboardSkippedEvent, DesktopSettings } from "@/types/clipboard";
+import type {
+  ClipboardMonitorErrorEvent,
+  ClipboardSkippedEvent,
+  DesktopSettings,
+} from "@/types/clipboard";
 
 interface ClipboardEventsOptions {
   refreshView: () => Promise<void>;
@@ -34,7 +39,18 @@ export function useClipboardEvents({
       setMessage(message);
       void refreshView();
     };
-    void registerEvents(disposers, remoteChange, setMonitorEnabled, setDesktopSettings)
+    const monitorError = (event: ClipboardMonitorErrorEvent) => {
+      if (disposed) {
+        return;
+      }
+      if (event.failing) {
+        setErrorMessage(event.message ?? "剪贴板监听出现错误。");
+      } else {
+        setErrorMessage("");
+        setMessage("剪贴板监听已恢复。");
+      }
+    };
+    void registerEvents(disposers, remoteChange, monitorError, setMonitorEnabled, setDesktopSettings)
       .catch((error: unknown) => setErrorMessage(String(error)));
     return () => {
       disposed = true;
@@ -46,6 +62,7 @@ export function useClipboardEvents({
 async function registerEvents(
   disposers: Array<() => void>,
   remoteChange: (message: string) => void,
+  monitorError: (event: ClipboardMonitorErrorEvent) => void,
   setMonitorEnabled: (value: boolean) => void,
   setDesktopSettings: React.Dispatch<React.SetStateAction<DesktopSettings | null>>,
 ) {
@@ -53,6 +70,7 @@ async function registerEvents(
   disposers.push(await onClipboardItemUpdated(() => remoteChange("重复内容已更新计数。")));
   disposers.push(await onClipboardItemDeleted(() => remoteChange("记录已删除。")));
   disposers.push(await onClipboardItemSkipped((event) => remoteChange(skipMessage(event))));
+  disposers.push(await onClipboardMonitorError(monitorError));
   disposers.push(await onClipboardMonitorStatusChanged((status) => {
     setMonitorEnabled(status.enabled);
     setDesktopSettings((settings) => settings ? { ...settings, monitorEnabled: status.enabled } : settings);

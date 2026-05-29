@@ -37,6 +37,11 @@ export interface ClipboardSkippedEvent {
   maxTextLength: number;
 }
 
+export interface ClipboardMonitorErrorEvent {
+  failing: boolean;
+  message: string | null;
+}
+
 export interface ClipboardMonitorStatus {
   enabled: boolean;
 }

@@ -6,6 +6,7 @@ import type {
   ClipboardDateGroup,
   ClipboardDeletedEvent,
   ClipboardItem,
+  ClipboardMonitorErrorEvent,
   ClipboardMonitorStatus,
   ClipboardSkippedEvent,
   DesktopSettings,
@@ -104,4 +105,10 @@ export function onClipboardMonitorStatusChanged(
   handler: (status: ClipboardMonitorStatus) => void,
 ): Promise<UnlistenFn> {
   return listen<ClipboardMonitorStatus>("clipboard:monitor-status-changed", (event) => handler(event.payload));
+}
+
+export function onClipboardMonitorError(
+  handler: (event: ClipboardMonitorErrorEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<ClipboardMonitorErrorEvent>("clipboard:monitor-error", (event) => handler(event.payload));
 }

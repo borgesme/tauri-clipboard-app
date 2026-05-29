@@ -14,9 +14,20 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invoke(...args),
 }));
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: () => Promise.resolve(() => {}),
+const { eventListeners } = vi.hoisted(() => ({
+  eventListeners: new Map<string, (event: { payload: unknown }) => void>(),
 }));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (event: string, handler: (event: { payload: unknown }) => void) => {
+    eventListeners.set(event, handler);
+    return Promise.resolve(() => eventListeners.delete(event));
+  },
+}));
+
+function emitEvent(event: string, payload: unknown) {
+  eventListeners.get(event)?.({ payload });
+}
 
 const DATES: ClipboardDateGroup[] = [
   { date: "2026-05-29", count: 2 },
@@ -94,6 +105,7 @@ function countCalls(command: string) {
 
 beforeEach(() => {
   invoke.mockReset();
+  eventListeners.clear();
 });
 
 describe("useClipboardWorkspace initial load", () => {
@@ -201,5 +213,36 @@ describe("useClipboardWorkspace updateSettings", () => {
 
     expect(result.current.errorMessage).toContain("boom");
     expect(result.current.isBusy).toBe(false);
+  });
+});
+
+describe("useClipboardWorkspace monitor errors", () => {
+  it("surfaces the monitor failure message as an error", async () => {
+    setupInvoke();
+    const { result } = renderHook(() => useClipboardWorkspace());
+    await waitFor(() => expect(result.current.items).toEqual(ITEMS));
+    await waitFor(() =>
+      expect(eventListeners.has("clipboard:monitor-error")).toBe(true),
+    );
+
+    act(() => emitEvent("clipboard:monitor-error", { failing: true, message: "boom" }));
+
+    expect(result.current.errorMessage).toBe("boom");
+  });
+
+  it("clears the error and reports recovery when monitoring resumes", async () => {
+    setupInvoke();
+    const { result } = renderHook(() => useClipboardWorkspace());
+    await waitFor(() => expect(result.current.items).toEqual(ITEMS));
+    await waitFor(() =>
+      expect(eventListeners.has("clipboard:monitor-error")).toBe(true),
+    );
+
+    act(() => emitEvent("clipboard:monitor-error", { failing: true, message: null }));
+    expect(result.current.errorMessage).toBe("剪贴板监听出现错误。");
+
+    act(() => emitEvent("clipboard:monitor-error", { failing: false, message: null }));
+    expect(result.current.errorMessage).toBe("");
+    expect(result.current.message).toBe("剪贴板监听已恢复。");
   });
 });
