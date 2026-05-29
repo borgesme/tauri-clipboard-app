@@ -36,6 +36,45 @@ pub fn init_schema(connection: &Connection) -> Result<(), ClipboardError> {
     Ok(())
 }
 
+pub fn migrate_schema(connection: &Connection) -> Result<(), ClipboardError> {
+    let already_migrated = {
+        let mut statement = connection.prepare("PRAGMA table_info(clipboard_items)")?;
+        let names: Vec<String> = statement
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(Result::ok)
+            .collect();
+        names.iter().any(|n| n == "local_date")
+    };
+    if already_migrated {
+        return Ok(());
+    }
+
+    connection.execute("ALTER TABLE clipboard_items ADD COLUMN local_date TEXT", [])?;
+    connection.execute(
+        "UPDATE clipboard_items
+         SET local_date = substr(created_at, 1, 10),
+             created_at = strftime('%Y-%m-%dT%H:%M:%SZ', created_at),
+             last_copied_at = strftime('%Y-%m-%dT%H:%M:%SZ', last_copied_at),
+             deleted_at = CASE
+                 WHEN deleted_at IS NOT NULL
+                 THEN strftime('%Y-%m-%dT%H:%M:%SZ', deleted_at)
+                 ELSE NULL
+             END",
+        [],
+    )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_clipboard_items_local_date_active
+            ON clipboard_items(local_date)
+            WHERE deleted_at IS NULL",
+        [],
+    )?;
+    connection.execute(
+        "DROP INDEX IF EXISTS idx_clipboard_items_created_at_active",
+        [],
+    )?;
+    Ok(())
+}
+
 pub fn upsert_text_item(
     connection: &Connection,
     content: &str,

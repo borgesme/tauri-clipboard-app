@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::repository::{
     cleanup_items, get_i64_setting, get_item_by_id, get_string_setting, init_schema,
-    list_date_groups, list_items_by_date, search_items, set_setting, soft_delete_item,
-    soft_delete_items_by_date, upsert_text_item,
+    list_date_groups, list_items_by_date, migrate_schema, search_items, set_setting,
+    soft_delete_item, soft_delete_items_by_date, upsert_text_item,
 };
 use super::service_runtime::open_connection;
 
@@ -208,4 +208,66 @@ fn init_schema_creates_local_date_column_and_index() {
         .next()
         .is_some();
     assert!(has_index, "local_date active index should exist");
+}
+
+#[test]
+fn migrate_schema_backfills_local_date_and_converts_to_utc() {
+    let path = temp_database_path("migrate-backfill");
+    let conn = open_connection(&path).unwrap();
+    // Build an OLD-format table WITHOUT local_date, matching pre-migration schema.
+    conn.execute_batch(
+        "CREATE TABLE clipboard_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            preview TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_copied_at TEXT NOT NULL,
+            copy_count INTEGER NOT NULL DEFAULT 1,
+            deleted_at TEXT
+        );",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO clipboard_items
+            (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count, deleted_at)
+         VALUES ('text', 'hi', 'hi', 'h',
+            '2026-05-29T08:53:00.123456789+08:00',
+            '2026-05-29T09:00:00.000000000+08:00', 1, NULL)",
+        [],
+    )
+    .unwrap();
+
+    migrate_schema(&conn).unwrap();
+
+    let (local_date, created_at, last_copied_at): (String, String, String) = conn
+        .query_row(
+            "SELECT local_date, created_at, last_copied_at FROM clipboard_items WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+
+    assert_eq!("2026-05-29", local_date);
+    assert_eq!("2026-05-29T00:53:00Z", created_at);
+    assert_eq!("2026-05-29T01:00:00Z", last_copied_at);
+}
+
+#[test]
+fn migrate_schema_is_idempotent() {
+    let path = temp_database_path("migrate-idempotent");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap(); // already has local_date column
+    migrate_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    let has_local_date = conn
+        .prepare("PRAGMA table_info(clipboard_items)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|name| name == "local_date");
+    assert!(has_local_date);
 }
