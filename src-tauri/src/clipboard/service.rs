@@ -35,10 +35,12 @@ impl ClipboardService {
     pub fn new(default_database_path: PathBuf) -> Result<Self, ClipboardError> {
         let settings_conn = service_runtime::open_connection(&default_database_path)?;
         repository::init_schema(&settings_conn)?;
+        repository::migrate_schema(&settings_conn)?;
         let stored = settings::get_stored_settings(&settings_conn)?;
         let database_path = resolve_database_path(&default_database_path, &stored.storage_dir);
         let items_conn = service_runtime::open_connection(&database_path)?;
         repository::init_schema(&items_conn)?;
+        repository::migrate_schema(&items_conn)?;
         Ok(Self {
             default_database_path,
             database_path: Mutex::new(database_path),
@@ -218,6 +220,7 @@ impl ClipboardService {
         if needs_swap {
             let new_conn = service_runtime::open_connection(&new_database_path)?;
             repository::init_schema(&new_conn)?;
+            repository::migrate_schema(&new_conn)?;
             let mut path_guard = self.lock_database_path()?;
             let mut items_guard = self.lock_items_conn()?;
             *items_guard = new_conn;
