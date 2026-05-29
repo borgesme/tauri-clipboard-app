@@ -80,12 +80,13 @@ pub fn upsert_text_item(
     content: &str,
     content_hash: &str,
     now: &str,
+    local_date: &str,
 ) -> Result<ClipboardItem, ClipboardError> {
     if let Some(id) = find_active_id_by_hash(connection, content_hash)? {
         update_existing_item(connection, id, now)?;
         return get_item_by_id_with_connection(connection, id);
     }
-    insert_text_item(connection, content, content_hash, now)?;
+    insert_text_item(connection, content, content_hash, now, local_date)?;
     get_item_by_id_with_connection(connection, connection.last_insert_rowid())
 }
 
@@ -253,18 +254,20 @@ fn insert_text_item(
     content: &str,
     content_hash: &str,
     now: &str,
+    local_date: &str,
 ) -> Result<(), ClipboardError> {
     connection.execute(
         "INSERT INTO clipboard_items
-         (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
+         (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count, local_date)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7)",
         params![
             CONTENT_TYPE_TEXT,
             content,
             preview(content),
             content_hash,
             now,
-            now
+            now,
+            local_date
         ],
     )?;
     Ok(())

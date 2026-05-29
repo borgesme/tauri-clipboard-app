@@ -13,7 +13,8 @@ use super::models::{
 };
 use super::repository;
 use super::service_runtime::{
-    self, now_iso, read_clipboard_text, resolve_database_path, skip_outcome, AppWriteGuard,
+    self, now_iso, read_clipboard_text, resolve_database_path, skip_outcome, today_local,
+    AppWriteGuard,
 };
 use super::settings;
 
@@ -75,7 +76,7 @@ impl ClipboardService {
         }
         let item = {
             let conn = self.lock_items_conn()?;
-            repository::upsert_text_item(&conn, &content, &hash, &now_iso())?
+            repository::upsert_text_item(&conn, &content, &hash, &now_iso(), &today_local())?
         };
         self.remember_seen_hash(hash)?;
         let should_clean = {

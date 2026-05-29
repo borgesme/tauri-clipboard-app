@@ -80,7 +80,7 @@ fn update_settings_switches_to_custom_storage_database() {
     {
         let conn = super::service_runtime::open_connection(&default_path).unwrap();
         repository::init_schema(&conn).unwrap();
-        repository::upsert_text_item(&conn, "default", "hash-1", "2026-05-26T10:00:00+08:00")
+        repository::upsert_text_item(&conn, "default", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26")
             .unwrap();
     }
     let settings = service
@@ -89,7 +89,7 @@ fn update_settings_switches_to_custom_storage_database() {
     {
         let conn = super::service_runtime::open_connection(&custom_path).unwrap();
         repository::init_schema(&conn).unwrap();
-        repository::upsert_text_item(&conn, "custom", "hash-2", "2026-05-26T11:00:00+08:00")
+        repository::upsert_text_item(&conn, "custom", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26")
             .unwrap();
     }
 
@@ -124,7 +124,7 @@ fn startup_uses_storage_dir_from_default_database() {
     {
         let conn = super::service_runtime::open_connection(&custom_path).unwrap();
         repository::init_schema(&conn).unwrap();
-        repository::upsert_text_item(&conn, "custom", "hash-1", "2026-05-26T11:00:00+08:00")
+        repository::upsert_text_item(&conn, "custom", "hash-1", "2026-05-26T11:00:00+08:00", "2026-05-26")
             .unwrap();
     }
     let settings = service.desktop_settings(false).unwrap();
@@ -271,6 +271,7 @@ fn retention_runs_only_after_threshold_captures() {
             &format!("item-{i}"),
             &format!("hash-{i}"),
             "2026-05-26T10:00:00+08:00",
+            "2026-05-26",
         )
         .unwrap();
         // 模拟一次 capture 完成：调内部钩子推进计数
@@ -294,6 +295,7 @@ fn retention_runs_only_after_threshold_captures() {
         "item-final",
         "hash-final",
         "2026-05-26T10:00:00+08:00",
+        "2026-05-26",
     )
     .unwrap();
     service.tick_capture_count_for_test().unwrap();

@@ -21,7 +21,7 @@ fn inserts_and_lists_items_by_date() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    let item = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
+    let item = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
     let groups = list_date_groups(&conn).unwrap();
     let items = list_items_by_date(&conn, "2026-05-26").unwrap();
 
@@ -37,8 +37,8 @@ fn deduplicates_active_hashes() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    let first = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
-    let second = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:01:00+08:00").unwrap();
+    let first = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    let second = upsert_text_item(&conn, "hello", "hash-1", "2026-05-26T10:01:00+08:00", "2026-05-26").unwrap();
 
     assert_eq!(first.id, second.id);
     assert_eq!(2, second.copy_count);
@@ -51,7 +51,7 @@ fn soft_deleted_items_are_hidden() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    let item = upsert_text_item(&conn, "secret", "hash-2", "2026-05-26T10:00:00+08:00").unwrap();
+    let item = upsert_text_item(&conn, "secret", "hash-2", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
     soft_delete_item(&conn, item.id, "2026-05-26T10:02:00+08:00").unwrap();
 
     assert!(get_item_by_id(&conn, item.id).is_err());
@@ -64,9 +64,9 @@ fn searches_active_content_across_dates() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    upsert_text_item(&conn, "alpha code", "hash-1", "2026-05-25T10:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "beta note", "hash-2", "2026-05-26T10:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "alpha docs", "hash-3", "2026-05-27T10:00:00+08:00").unwrap();
+    upsert_text_item(&conn, "alpha code", "hash-1", "2026-05-25T10:00:00+08:00", "2026-05-25").unwrap();
+    upsert_text_item(&conn, "beta note", "hash-2", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "alpha docs", "hash-3", "2026-05-27T10:00:00+08:00", "2026-05-27").unwrap();
 
     let results = search_items(&conn, "alpha").unwrap();
 
@@ -86,6 +86,7 @@ fn search_ignores_deleted_items_and_blank_keywords() {
         "temporary token",
         "hash-1",
         "2026-05-26T10:00:00+08:00",
+        "2026-05-26",
     )
     .unwrap();
     soft_delete_item(&conn, item.id, "2026-05-26T10:02:00+08:00").unwrap();
@@ -100,9 +101,9 @@ fn soft_deletes_all_items_by_date() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    upsert_text_item(&conn, "today one", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "today two", "hash-2", "2026-05-26T11:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "other day", "hash-3", "2026-05-27T10:00:00+08:00").unwrap();
+    upsert_text_item(&conn, "today one", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "today two", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "other day", "hash-3", "2026-05-27T10:00:00+08:00", "2026-05-27").unwrap();
 
     let changed =
         soft_delete_items_by_date(&conn, "2026-05-26", "2026-05-26T12:00:00+08:00").unwrap();
@@ -136,8 +137,8 @@ fn cleanup_items_removes_old_dates() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    upsert_text_item(&conn, "old", "hash-1", "2026-05-01T10:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "new", "hash-2", "2026-05-26T10:00:00+08:00").unwrap();
+    upsert_text_item(&conn, "old", "hash-1", "2026-05-01T10:00:00+08:00", "2026-05-01").unwrap();
+    upsert_text_item(&conn, "new", "hash-2", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
 
     let changed = cleanup_items(&conn, "2026-05-10", 100, "2026-05-27T10:00:00+08:00").unwrap();
 
@@ -152,9 +153,9 @@ fn cleanup_items_respects_max_record_count() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    upsert_text_item(&conn, "first", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "second", "hash-2", "2026-05-26T11:00:00+08:00").unwrap();
-    upsert_text_item(&conn, "third", "hash-3", "2026-05-26T12:00:00+08:00").unwrap();
+    upsert_text_item(&conn, "first", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "second", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "third", "hash-3", "2026-05-26T12:00:00+08:00", "2026-05-26").unwrap();
 
     let changed = cleanup_items(&conn, "2026-05-01", 2, "2026-05-27T10:00:00+08:00").unwrap();
     let items = list_items_by_date(&conn, "2026-05-26").unwrap();
@@ -171,9 +172,9 @@ fn purge_deleted_items_removes_only_soft_deleted_rows() {
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
 
-    let active = upsert_text_item(&conn, "active", "hash-1", "2026-05-26T10:00:00+08:00").unwrap();
+    let active = upsert_text_item(&conn, "active", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
     let deleted =
-        upsert_text_item(&conn, "deleted", "hash-2", "2026-05-26T11:00:00+08:00").unwrap();
+        upsert_text_item(&conn, "deleted", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
     soft_delete_item(&conn, deleted.id, "2026-05-26T12:00:00+08:00").unwrap();
 
     let removed = super::maintenance::purge_deleted_items(&conn).unwrap();
@@ -270,4 +271,17 @@ fn migrate_schema_is_idempotent() {
         .filter_map(Result::ok)
         .any(|name| name == "local_date");
     assert!(has_local_date);
+}
+
+#[test]
+fn list_date_groups_uses_local_date_column() {
+    let path = temp_database_path("groups-local-date");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    upsert_text_item(&conn, "a", "ha", "2026-05-26T10:00:00Z", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "b", "hb", "2026-05-27T10:00:00Z", "2026-05-27").unwrap();
+
+    let groups = list_date_groups(&conn).unwrap();
+    assert_eq!("2026-05-27", groups[0].date);
+    assert_eq!("2026-05-26", groups[1].date);
 }
