@@ -170,13 +170,13 @@ fn autostart_change(current: bool, requested: bool) -> Option<bool> {
 fn emit_deleted(app_handle: &AppHandle, id: Option<i64>, date: Option<String>) {
     let event = ClipboardDeletedEvent { id, date };
     if let Err(error) = app_handle.emit("clipboard:item-deleted", event) {
-        eprintln!("failed to emit clipboard deleted event: {error}");
+        log::warn!("failed to emit clipboard deleted event: {error}");
     }
 }
 
 fn emit_monitor_status(app_handle: &AppHandle, status: ClipboardMonitorStatus) {
     if let Err(error) = app_handle.emit("clipboard:monitor-status-changed", status) {
-        eprintln!("failed to emit clipboard monitor status event: {error}");
+        log::warn!("failed to emit clipboard monitor status event: {error}");
     }
 }
 

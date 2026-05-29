@@ -52,7 +52,7 @@ fn setup_close_to_tray(app: &mut App) {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 if let Err(error) = close_window.hide() {
-                    eprintln!("failed to hide window: {error}");
+                    log::warn!("failed to hide window: {error}");
                 }
             }
         });
@@ -195,6 +195,6 @@ fn is_left_click_up(event: &TrayIconEvent) -> bool {
 
 fn handle_result(result: Result<(), ClipboardError>) {
     if let Err(error) = result {
-        eprintln!("desktop action failed: {error}");
+        log::warn!("desktop action failed: {error}");
     }
 }

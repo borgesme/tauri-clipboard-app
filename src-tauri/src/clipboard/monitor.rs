@@ -55,6 +55,6 @@ fn emit_skip_event(
         max_text_length,
     };
     if let Err(error) = app_handle.emit("clipboard:item-skipped", event) {
-        eprintln!("failed to emit clipboard skipped event: {error}");
+        log::warn!("failed to emit clipboard skipped event: {error}");
     }
 }
