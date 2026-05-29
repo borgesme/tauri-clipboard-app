@@ -183,3 +183,29 @@ fn purge_deleted_items_removes_only_soft_deleted_rows() {
     assert_eq!(1, items.len());
     assert_eq!(active.id, items[0].id);
 }
+
+#[test]
+fn init_schema_creates_local_date_column_and_index() {
+    let path = temp_database_path("local-date-schema");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+
+    let has_local_date = conn
+        .prepare("PRAGMA table_info(clipboard_items)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|name| name == "local_date");
+    assert!(has_local_date, "local_date column should exist");
+
+    let has_index = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name=?1")
+        .unwrap()
+        .query_map(["idx_clipboard_items_local_date_active"], |row| row.get::<_, String>(0))
+        .unwrap()
+        .filter_map(Result::ok)
+        .next()
+        .is_some();
+    assert!(has_index, "local_date active index should exist");
+}

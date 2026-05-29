@@ -17,14 +17,16 @@ pub fn init_schema(connection: &Connection) -> Result<(), ClipboardError> {
             created_at TEXT NOT NULL,
             last_copied_at TEXT NOT NULL,
             copy_count INTEGER NOT NULL DEFAULT 1,
-            deleted_at TEXT
+            deleted_at TEXT,
+            local_date TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_items_hash_active
             ON clipboard_items(content_hash)
             WHERE deleted_at IS NULL;
-        CREATE INDEX IF NOT EXISTS idx_clipboard_items_created_at_active
-            ON clipboard_items(created_at)
+        CREATE INDEX IF NOT EXISTS idx_clipboard_items_local_date_active
+            ON clipboard_items(local_date)
             WHERE deleted_at IS NULL;
+        DROP INDEX IF EXISTS idx_clipboard_items_created_at_active;
         CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
