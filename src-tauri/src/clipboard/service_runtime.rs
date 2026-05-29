@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use arboard::Clipboard;
-use chrono::Local;
+use chrono::{Local, Utc};
 use rusqlite::Connection;
 
 use super::error::ClipboardError;
@@ -40,7 +40,11 @@ pub fn read_clipboard_text() -> Result<String, ClipboardError> {
 }
 
 pub fn now_iso() -> String {
-    Local::now().to_rfc3339()
+    Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+}
+
+pub fn today_local() -> String {
+    Local::now().format("%Y-%m-%d").to_string()
 }
 
 pub fn skip_outcome(
