@@ -8,6 +8,7 @@ use rusqlite::Connection;
 use super::error::ClipboardError;
 use super::models::{ClipboardSkipReason, StoredSettings};
 use super::repository;
+use super::service_runtime::now_iso;
 
 pub const DEFAULT_RETENTION_DAYS: i64 = 30;
 pub const DEFAULT_MAX_RECORD_COUNT: i64 = 1000;
@@ -74,7 +75,7 @@ pub fn update_stored_settings(
         custom_secret_patterns: custom_secret_patterns.trim().to_string(),
         storage_dir: storage_dir.trim().to_string(),
     };
-    let now = Local::now().to_rfc3339();
+    let now = now_iso();
     repository::set_setting(
         connection,
         "monitor_enabled",
@@ -119,7 +120,7 @@ pub fn update_monitor_enabled(
     connection: &Connection,
     enabled: bool,
 ) -> Result<(), ClipboardError> {
-    let now = Local::now().to_rfc3339();
+    let now = now_iso();
     repository::set_setting(
         connection,
         "monitor_enabled",
@@ -149,7 +150,7 @@ pub fn apply_retention_policy(
     settings_connection: &Connection,
 ) -> Result<usize, ClipboardError> {
     let settings = get_stored_settings(settings_connection)?;
-    let now = Local::now().to_rfc3339();
+    let now = now_iso();
     let cutoff = Local::now() - Duration::days(settings.retention_days);
     let cutoff_date = cutoff.format("%Y-%m-%d").to_string();
     repository::cleanup_items(
