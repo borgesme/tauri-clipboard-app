@@ -23,10 +23,6 @@ pub fn init_schema(connection: &Connection) -> Result<(), ClipboardError> {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_clipboard_items_hash_active
             ON clipboard_items(content_hash)
             WHERE deleted_at IS NULL;
-        CREATE INDEX IF NOT EXISTS idx_clipboard_items_local_date_active
-            ON clipboard_items(local_date)
-            WHERE deleted_at IS NULL;
-        DROP INDEX IF EXISTS idx_clipboard_items_created_at_active;
         CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
@@ -37,7 +33,7 @@ pub fn init_schema(connection: &Connection) -> Result<(), ClipboardError> {
 }
 
 pub fn migrate_schema(connection: &Connection) -> Result<(), ClipboardError> {
-    let already_migrated = {
+    let has_local_date = {
         let mut statement = connection.prepare("PRAGMA table_info(clipboard_items)")?;
         let names: Vec<String> = statement
             .query_map([], |row| row.get::<_, String>(1))?
@@ -45,23 +41,26 @@ pub fn migrate_schema(connection: &Connection) -> Result<(), ClipboardError> {
             .collect();
         names.iter().any(|n| n == "local_date")
     };
-    if already_migrated {
-        return Ok(());
+
+    if !has_local_date {
+        connection.execute("ALTER TABLE clipboard_items ADD COLUMN local_date TEXT", [])?;
+        connection.execute(
+            "UPDATE clipboard_items
+             SET local_date = substr(created_at, 1, 10),
+                 created_at = strftime('%Y-%m-%dT%H:%M:%SZ', created_at),
+                 last_copied_at = strftime('%Y-%m-%dT%H:%M:%SZ', last_copied_at),
+                 deleted_at = CASE
+                     WHEN deleted_at IS NOT NULL
+                     THEN strftime('%Y-%m-%dT%H:%M:%SZ', deleted_at)
+                     ELSE NULL
+                 END",
+            [],
+        )?;
     }
 
-    connection.execute("ALTER TABLE clipboard_items ADD COLUMN local_date TEXT", [])?;
-    connection.execute(
-        "UPDATE clipboard_items
-         SET local_date = substr(created_at, 1, 10),
-             created_at = strftime('%Y-%m-%dT%H:%M:%SZ', created_at),
-             last_copied_at = strftime('%Y-%m-%dT%H:%M:%SZ', last_copied_at),
-             deleted_at = CASE
-                 WHEN deleted_at IS NOT NULL
-                 THEN strftime('%Y-%m-%dT%H:%M:%SZ', deleted_at)
-                 ELSE NULL
-             END",
-        [],
-    )?;
+    // local_date 索引必须在补列之后才能建：旧库的该列由上面的 ALTER 添加，
+    // 所以索引放在迁移末尾无条件幂等执行，而不能留在 init_schema —— 否则旧库
+    // 的 CREATE TABLE IF NOT EXISTS 是空操作不补列，紧接着建索引会 no such column。
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_clipboard_items_local_date_active
             ON clipboard_items(local_date)

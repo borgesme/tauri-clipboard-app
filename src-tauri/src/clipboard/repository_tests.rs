@@ -186,10 +186,11 @@ fn purge_deleted_items_removes_only_soft_deleted_rows() {
 }
 
 #[test]
-fn init_schema_creates_local_date_column_and_index() {
+fn init_then_migrate_creates_local_date_column_and_index() {
     let path = temp_database_path("local-date-schema");
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
 
     let has_local_date = conn
         .prepare("PRAGMA table_info(clipboard_items)")
@@ -305,6 +306,68 @@ fn migrate_schema_is_idempotent() {
 
     assert_eq!(("2026-05-29".to_string(), "2026-05-29T00:53:00Z".to_string(), "2026-05-29T01:00:00Z".to_string()), after_first);
     assert_eq!(after_first, after_second, "重复迁移不应改变已迁移的值");
+}
+
+#[test]
+fn init_then_migrate_upgrades_legacy_db_without_local_date() {
+    let path = temp_database_path("legacy-upgrade");
+    let conn = open_connection(&path).unwrap();
+    // 模拟旧版本遗留的库：clipboard_items 表已存在但没有 local_date 列。
+    conn.execute_batch(
+        "CREATE TABLE clipboard_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            preview TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_copied_at TEXT NOT NULL,
+            copy_count INTEGER NOT NULL DEFAULT 1,
+            deleted_at TEXT
+        );",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO clipboard_items
+            (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count, deleted_at)
+         VALUES ('text', 'legacy', 'legacy', 'h-legacy',
+            '2026-05-20T08:00:00.000000000+08:00',
+            '2026-05-20T08:00:00.000000000+08:00', 1, NULL)",
+        [],
+    )
+    .unwrap();
+
+    // 生产启动顺序（service.rs）：先 init_schema 再 migrate_schema。
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    let has_local_date = conn
+        .prepare("PRAGMA table_info(clipboard_items)")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(1))
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|name| name == "local_date");
+    assert!(has_local_date, "local_date column should exist after upgrade");
+
+    let has_index = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name=?1")
+        .unwrap()
+        .query_map(["idx_clipboard_items_local_date_active"], |row| row.get::<_, String>(0))
+        .unwrap()
+        .filter_map(Result::ok)
+        .next()
+        .is_some();
+    assert!(has_index, "local_date active index should exist after upgrade");
+
+    let local_date: String = conn
+        .query_row(
+            "SELECT local_date FROM clipboard_items WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!("2026-05-20", local_date, "existing rows should backfill local_date");
 }
 
 #[test]
