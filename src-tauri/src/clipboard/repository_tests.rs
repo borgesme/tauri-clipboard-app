@@ -259,18 +259,52 @@ fn migrate_schema_backfills_local_date_and_converts_to_utc() {
 fn migrate_schema_is_idempotent() {
     let path = temp_database_path("migrate-idempotent");
     let conn = open_connection(&path).unwrap();
-    init_schema(&conn).unwrap(); // already has local_date column
-    migrate_schema(&conn).unwrap();
-    migrate_schema(&conn).unwrap();
+    // 从真正的旧格式表（无 local_date）出发，验证重复迁移不改值
+    conn.execute_batch(
+        "CREATE TABLE clipboard_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            preview TEXT NOT NULL,
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            last_copied_at TEXT NOT NULL,
+            copy_count INTEGER NOT NULL DEFAULT 1,
+            deleted_at TEXT
+        );",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO clipboard_items
+            (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count, deleted_at)
+         VALUES ('text', 'hi', 'hi', 'h',
+            '2026-05-29T08:53:00.123456789+08:00',
+            '2026-05-29T09:00:00.000000000+08:00', 1, NULL)",
+        [],
+    )
+    .unwrap();
 
-    let has_local_date = conn
-        .prepare("PRAGMA table_info(clipboard_items)")
-        .unwrap()
-        .query_map([], |row| row.get::<_, String>(1))
-        .unwrap()
-        .filter_map(Result::ok)
-        .any(|name| name == "local_date");
-    assert!(has_local_date);
+    migrate_schema(&conn).unwrap();
+    let after_first: (String, String, String) = conn
+        .query_row(
+            "SELECT local_date, created_at, last_copied_at FROM clipboard_items WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+
+    // 第二次迁移走 PRAGMA 早退路径，值不应再被改动
+    migrate_schema(&conn).unwrap();
+    let after_second: (String, String, String) = conn
+        .query_row(
+            "SELECT local_date, created_at, last_copied_at FROM clipboard_items WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+
+    assert_eq!(("2026-05-29".to_string(), "2026-05-29T00:53:00Z".to_string(), "2026-05-29T01:00:00Z".to_string()), after_first);
+    assert_eq!(after_first, after_second, "重复迁移不应改变已迁移的值");
 }
 
 #[test]
