@@ -94,11 +94,11 @@ pub fn list_date_groups(
     connection: &Connection,
 ) -> Result<Vec<ClipboardDateGroup>, ClipboardError> {
     let mut statement = connection.prepare(
-        "SELECT substr(created_at, 1, 10) AS date, COUNT(*) AS count
+        "SELECT local_date AS date, COUNT(*) AS count
          FROM clipboard_items
          WHERE deleted_at IS NULL
-         GROUP BY date
-         ORDER BY date DESC",
+         GROUP BY local_date
+         ORDER BY local_date DESC",
     )?;
     let rows = statement.query_map([], |row| {
         Ok(ClipboardDateGroup {
@@ -117,7 +117,7 @@ pub fn list_items_by_date(
     let mut statement = connection.prepare(
         "SELECT id, content_type, content, preview, content_hash, created_at, last_copied_at, copy_count
          FROM clipboard_items
-         WHERE deleted_at IS NULL AND substr(created_at, 1, 10) = ?1
+         WHERE deleted_at IS NULL AND local_date = ?1
          ORDER BY last_copied_at DESC, id DESC",
     )?;
     let rows = statement.query_map([date], map_item)?;
@@ -175,7 +175,7 @@ pub fn soft_delete_items_by_date(
     let changed = connection.execute(
         "UPDATE clipboard_items
          SET deleted_at = ?1
-         WHERE substr(created_at, 1, 10) = ?2 AND deleted_at IS NULL",
+         WHERE local_date = ?2 AND deleted_at IS NULL",
         params![now, date],
     )?;
     Ok(changed)
@@ -282,7 +282,7 @@ fn cleanup_by_date(
         .execute(
             "UPDATE clipboard_items
              SET deleted_at = ?1
-             WHERE deleted_at IS NULL AND substr(created_at, 1, 10) < ?2",
+             WHERE deleted_at IS NULL AND local_date < ?2",
             params![now, cutoff_date],
         )
         .map_err(ClipboardError::from)

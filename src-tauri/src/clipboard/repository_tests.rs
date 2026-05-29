@@ -285,3 +285,17 @@ fn list_date_groups_uses_local_date_column() {
     assert_eq!("2026-05-27", groups[0].date);
     assert_eq!("2026-05-26", groups[1].date);
 }
+
+#[test]
+fn list_items_by_date_orders_by_real_utc_time() {
+    let path = temp_database_path("order-utc");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    // Same local_date; 07:00Z is later than 00:53Z.
+    upsert_text_item(&conn, "early", "he", "2026-05-29T00:53:00Z", "2026-05-29").unwrap();
+    upsert_text_item(&conn, "late", "hl", "2026-05-29T07:00:00Z", "2026-05-29").unwrap();
+
+    let items = list_items_by_date(&conn, "2026-05-29").unwrap();
+    assert_eq!("late", items[0].content);
+    assert_eq!("early", items[1].content);
+}
