@@ -1,4 +1,5 @@
-﻿import { fileURLToPath, URL } from "node:url";
+﻿/// <reference types="vitest/config" />
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -9,6 +10,11 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+  test: {
+    environment: "node",
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
