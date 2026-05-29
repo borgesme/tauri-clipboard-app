@@ -59,7 +59,7 @@ async function registerEvents(
   }));
 }
 
-function skipMessage(event: ClipboardSkippedEvent) {
+export function skipMessage(event: ClipboardSkippedEvent) {
   if (event.reason === "tooLong") {
     return `该剪贴板内容超过单条文本上限（${event.maxTextLength} 字），已跳过。`;
   }
