@@ -181,14 +181,15 @@ CREATE TABLE clipboard_items (
   created_at TEXT NOT NULL,
   last_copied_at TEXT NOT NULL,
   copy_count INTEGER NOT NULL DEFAULT 1,
-  deleted_at TEXT
+  deleted_at TEXT,
+  local_date TEXT
 );
 
 CREATE UNIQUE INDEX idx_clipboard_items_hash_active
   ON clipboard_items(content_hash)
   WHERE deleted_at IS NULL;
-CREATE INDEX idx_clipboard_items_created_at_active
-  ON clipboard_items(created_at)
+CREATE INDEX idx_clipboard_items_local_date_active
+  ON clipboard_items(local_date)
   WHERE deleted_at IS NULL;
 ```
 
@@ -198,10 +199,10 @@ CREATE INDEX idx_clipboard_items_created_at_active
 - `content`：完整剪贴板内容。
 - `preview`：列表摘要，当前截断到 120 个字符。
 - `content_hash`：用于去重的内容 hash。
-- `created_at`：首次捕获时间，按本地时间生成日期分组。
-- `last_copied_at`：最近一次检测到该内容的时间。
+- `created_at` / `last_copied_at`：UTC 时间戳，格式 `YYYY-MM-DDTHH:MM:SSZ`（整秒、末尾 `Z`）。字典序即真实时刻序，排序在任何时区/夏令时下正确。
+- `local_date`：写入时刻的本地民用日期 `YYYY-MM-DD`，日期分组、按日期查询/清理/软删除均依据此列；语义稳定，不随后续时区变化而改变。
 - `copy_count`：相同内容被复制的累计次数。
-- `deleted_at`：软删除时间；若选择物理删除，可移除此字段。
+- `deleted_at`：软删除时间（同为 UTC 格式）；若选择物理删除，可移除此字段。
 
 ### 7.2 应用设置
 
