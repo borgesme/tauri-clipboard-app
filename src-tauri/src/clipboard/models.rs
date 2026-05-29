@@ -104,3 +104,10 @@ pub struct StoredSettings {
     pub custom_secret_patterns: String,
     pub storage_dir: String,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardMonitorErrorEvent {
+    pub failing: bool,
+    pub message: Option<String>,
+}

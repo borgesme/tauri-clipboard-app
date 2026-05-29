@@ -15,3 +15,5 @@ mod repository_tests;
 mod service_tests;
 #[cfg(test)]
 mod storage_path_tests;
+#[cfg(test)]
+mod monitor_tests;
