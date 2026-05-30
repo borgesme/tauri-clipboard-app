@@ -71,6 +71,45 @@ pub fn migrate_schema(connection: &Connection) -> Result<(), ClipboardError> {
         "DROP INDEX IF EXISTS idx_clipboard_items_created_at_active",
         [],
     )?;
+    ensure_fts_index(connection)?;
+    Ok(())
+}
+
+// FTS5 trigram 索引：去重命中只改 last_copied_at/copy_count、软删除只改 deleted_at，
+// 故 au 触发器的 WHEN 守卫令这两类高频 UPDATE 不重写索引；软删除行留在 FTS 中，
+// 由 search 的 JOIN 过滤 deleted_at 排除。exists 探测使该步幂等。
+fn ensure_fts_index(connection: &Connection) -> Result<(), ClipboardError> {
+    let has_fts: bool = connection
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='clipboard_fts'")?
+        .exists([])?;
+    if has_fts {
+        return Ok(());
+    }
+    connection.execute_batch(
+        "CREATE VIRTUAL TABLE clipboard_fts USING fts5(
+            content, preview,
+            content='clipboard_items',
+            content_rowid='id',
+            tokenize='trigram'
+        );
+        CREATE TRIGGER clipboard_fts_ai AFTER INSERT ON clipboard_items BEGIN
+            INSERT INTO clipboard_fts(rowid, content, preview)
+            VALUES (new.id, new.content, new.preview);
+        END;
+        CREATE TRIGGER clipboard_fts_ad AFTER DELETE ON clipboard_items BEGIN
+            INSERT INTO clipboard_fts(clipboard_fts, rowid, content, preview)
+            VALUES('delete', old.id, old.content, old.preview);
+        END;
+        CREATE TRIGGER clipboard_fts_au AFTER UPDATE ON clipboard_items
+        WHEN old.content IS NOT new.content OR old.preview IS NOT new.preview
+        BEGIN
+            INSERT INTO clipboard_fts(clipboard_fts, rowid, content, preview)
+            VALUES('delete', old.id, old.content, old.preview);
+            INSERT INTO clipboard_fts(rowid, content, preview)
+            VALUES (new.id, new.content, new.preview);
+        END;
+        INSERT INTO clipboard_fts(clipboard_fts) VALUES('rebuild');",
+    )?;
     Ok(())
 }
 

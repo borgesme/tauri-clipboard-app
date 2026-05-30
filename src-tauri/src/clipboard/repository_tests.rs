@@ -396,3 +396,56 @@ fn list_items_by_date_orders_by_real_utc_time() {
     assert_eq!("late", items[0].content);
     assert_eq!("early", items[1].content);
 }
+
+#[test]
+fn migrate_schema_creates_fts_table_and_triggers() {
+    let path = temp_database_path("fts-schema");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    let has_fts: bool = conn
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='clipboard_fts'")
+        .unwrap()
+        .exists([])
+        .unwrap();
+    assert!(has_fts, "clipboard_fts virtual table should exist");
+
+    let trigger_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'
+             AND name IN ('clipboard_fts_ai','clipboard_fts_ad','clipboard_fts_au')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(3, trigger_count, "three FTS sync triggers should exist");
+}
+
+#[test]
+fn migrate_schema_rebuilds_fts_for_existing_rows() {
+    let path = temp_database_path("fts-rebuild");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    // 在建 FTS 之前插入存量数据（绕过触发器，模拟旧库）
+    conn.execute(
+        "INSERT INTO clipboard_items
+            (content_type, content, preview, content_hash, created_at, last_copied_at, copy_count, local_date)
+         VALUES ('text', '历史归档内容', '历史归档内容', 'h-legacy',
+            '2026-05-20T08:00:00Z', '2026-05-20T08:00:00Z', 1, '2026-05-20')",
+        [],
+    )
+    .unwrap();
+
+    migrate_schema(&conn).unwrap();
+
+    // rebuild 后存量行应可被 FTS MATCH 命中
+    let matched: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM clipboard_fts WHERE clipboard_fts MATCH '\"归档内\"'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(1, matched, "rebuild should index pre-existing rows");
+}
