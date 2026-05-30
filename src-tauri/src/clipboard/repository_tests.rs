@@ -63,6 +63,7 @@ fn searches_active_content_across_dates() {
     let path = temp_database_path("search");
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
 
     upsert_text_item(&conn, "alpha code", "hash-1", "2026-05-25T10:00:00+08:00", "2026-05-25").unwrap();
     upsert_text_item(&conn, "beta note", "hash-2", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
@@ -80,6 +81,7 @@ fn search_ignores_deleted_items_and_blank_keywords() {
     let path = temp_database_path("search-hidden");
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
 
     let item = upsert_text_item(
         &conn,
@@ -136,6 +138,7 @@ fn cleanup_items_removes_old_dates() {
     let path = temp_database_path("cleanup-date");
     let conn = open_connection(&path).unwrap();
     init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
 
     upsert_text_item(&conn, "old", "hash-1", "2026-05-01T10:00:00+08:00", "2026-05-01").unwrap();
     upsert_text_item(&conn, "new", "hash-2", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
@@ -448,4 +451,61 @@ fn migrate_schema_rebuilds_fts_for_existing_rows() {
         )
         .unwrap();
     assert_eq!(1, matched, "rebuild should index pre-existing rows");
+}
+
+#[test]
+fn search_matches_chinese_substring() {
+    let path = temp_database_path("search-cn");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    upsert_text_item(&conn, "今天天气很好", "hash-cn", "2026-05-28T10:00:00Z", "2026-05-28").unwrap();
+
+    let results = search_items(&conn, "天气很").unwrap();
+    assert_eq!(1, results.len());
+    assert_eq!("今天天气很好", results[0].content);
+}
+
+#[test]
+fn search_short_keyword_falls_back_to_like() {
+    let path = temp_database_path("search-short");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    upsert_text_item(&conn, "今天天气", "hash-short", "2026-05-28T10:00:00Z", "2026-05-28").unwrap();
+
+    // 2 字查询低于 trigram 3 字下限，经 LIKE 回退仍应命中
+    let results = search_items(&conn, "天气").unwrap();
+    assert_eq!(1, results.len());
+    assert_eq!("今天天气", results[0].content);
+}
+
+#[test]
+fn search_excludes_soft_deleted_via_fts() {
+    let path = temp_database_path("search-fts-deleted");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    let item = upsert_text_item(&conn, "错误日志记录", "hash-del", "2026-05-28T10:00:00Z", "2026-05-28").unwrap();
+    assert_eq!(1, search_items(&conn, "错误日").unwrap().len());
+
+    soft_delete_item(&conn, item.id, "2026-05-28T11:00:00Z").unwrap();
+    assert!(search_items(&conn, "错误日").unwrap().is_empty());
+}
+
+#[test]
+fn search_is_case_insensitive_via_fts() {
+    let path = temp_database_path("search-case");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    upsert_text_item(&conn, "AlphaCode", "hash-case", "2026-05-28T10:00:00Z", "2026-05-28").unwrap();
+
+    let results = search_items(&conn, "alphac").unwrap();
+    assert_eq!(1, results.len());
+    assert_eq!("AlphaCode", results[0].content);
 }

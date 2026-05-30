@@ -171,7 +171,36 @@ pub fn search_items(
     if trimmed.is_empty() {
         return Ok(Vec::new());
     }
-    let pattern = format!("%{trimmed}%");
+    if trimmed.chars().count() >= 3 {
+        search_via_fts(connection, trimmed)
+    } else {
+        search_via_like(connection, trimmed)
+    }
+}
+
+fn search_via_fts(
+    connection: &Connection,
+    keyword: &str,
+) -> Result<Vec<ClipboardItem>, ClipboardError> {
+    // 包成 FTS5 字符串字面量并双写内部引号，避免输入被解析为操作符/语法
+    let fts_query = format!("\"{}\"", keyword.replace('"', "\"\""));
+    let mut statement = connection.prepare(
+        "SELECT i.id, i.content_type, i.content, i.preview, i.content_hash, i.created_at, i.last_copied_at, i.copy_count
+         FROM clipboard_fts f
+         JOIN clipboard_items i ON i.id = f.rowid
+         WHERE f.clipboard_fts MATCH ?1 AND i.deleted_at IS NULL
+         ORDER BY i.last_copied_at DESC, i.id DESC",
+    )?;
+    let rows = statement.query_map([fts_query], map_item)?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(ClipboardError::from)
+}
+
+fn search_via_like(
+    connection: &Connection,
+    keyword: &str,
+) -> Result<Vec<ClipboardItem>, ClipboardError> {
+    let pattern = format!("%{keyword}%");
     let mut statement = connection.prepare(
         "SELECT id, content_type, content, preview, content_hash, created_at, last_copied_at, copy_count
          FROM clipboard_items
