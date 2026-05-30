@@ -88,6 +88,9 @@ function setupInvoke(overrides: InvokeOverrides = {}) {
       case "update_desktop_settings":
         return Promise.resolve(SETTINGS);
       case "clear_clipboard_items_by_date":
+        return Promise.resolve([]);
+      case "restore_clipboard_items":
+        return Promise.resolve(0);
       case "delete_clipboard_item":
       case "copy_clipboard_item":
         return Promise.resolve();
@@ -244,5 +247,53 @@ describe("useClipboardWorkspace monitor errors", () => {
     act(() => emitEvent("clipboard:monitor-error", { failing: false, message: null }));
     expect(result.current.errorMessage).toBe("");
     expect(result.current.message).toBe("剪贴板监听已恢复。");
+  });
+});
+
+describe("useClipboardWorkspace undo", () => {
+  it("shows undoState after clearing a non-empty date", async () => {
+    setupInvoke({ clear_clipboard_items_by_date: () => [11, 22] });
+    const { result } = renderHook(() => useClipboardWorkspace());
+    await waitFor(() => expect(result.current.items).toEqual(ITEMS));
+
+    await act(async () => {
+      await result.current.clearDate();
+    });
+
+    expect(result.current.undoState).toEqual({
+      ids: [11, 22],
+      date: result.current.selectedDate,
+      count: 2,
+    });
+  });
+
+  it("keeps undoState null when the cleared date has no items", async () => {
+    setupInvoke({ clear_clipboard_items_by_date: () => [] });
+    const { result } = renderHook(() => useClipboardWorkspace());
+    await waitFor(() => expect(result.current.items).toEqual(ITEMS));
+
+    await act(async () => {
+      await result.current.clearDate();
+    });
+
+    expect(result.current.undoState).toBeNull();
+  });
+
+  it("restores items and clears undoState on undoClear", async () => {
+    setupInvoke({ clear_clipboard_items_by_date: () => [11, 22] });
+    const { result } = renderHook(() => useClipboardWorkspace());
+    await waitFor(() => expect(result.current.items).toEqual(ITEMS));
+
+    await act(async () => {
+      await result.current.clearDate();
+    });
+    await act(async () => {
+      await result.current.undoClear();
+    });
+
+    expect(countCalls("restore_clipboard_items")).toBe(1);
+    const call = invoke.mock.calls.find(([name]) => name === "restore_clipboard_items");
+    expect(call?.[1]).toEqual({ ids: [11, 22] });
+    expect(result.current.undoState).toBeNull();
   });
 });

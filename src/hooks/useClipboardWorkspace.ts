@@ -10,10 +10,12 @@ import {
   listClipboardDates,
   listClipboardItems,
   purgeDeletedClipboardItems,
+  restoreClipboardItems,
   searchClipboardItems,
   setClipboardMonitorEnabled,
   updateDesktopSettings,
 } from "@/api/clipboard";
+import { useUndoToast, type UndoState } from "@/hooks/useUndoToast";
 import { useClipboardEvents } from "@/hooks/useClipboardEvents";
 import { todayKey } from "@/lib/date";
 import type { ClipboardDateGroup, ClipboardItem, DesktopSettings } from "@/types/clipboard";
@@ -34,6 +36,7 @@ export function useClipboardWorkspace() {
   const setLoadedItems = useLoadedItemsSetter(setItems, setSelectedItemId);
   const loadItems = useLoadItems(searchTerm, selectedDate, setLoadedItems);
   const refreshView = useRefreshView({ loadDates, loadItems, setIsBusy, setErrorMessage });
+  const undo = useUndoToast();
 
   useInitialStatus({ setMonitorEnabled, setDesktopSettings, setErrorMessage });
   useEffect(() => void refreshView(), [refreshView]);
@@ -65,7 +68,18 @@ export function useClipboardWorkspace() {
       setDesktopSettings,
       setMessage,
     }),
-    clearDate: createClearDate({ selectedDate, refreshView, setMessage }),
+    clearDate: createClearDate({ selectedDate, refreshView, setMessage, undoShow: undo.show }),
+    undoState: undo.pending,
+    undoClear: createUndoClear({
+      pending: undo.pending,
+      dismissUndo: undo.clear,
+      setSearchTerm,
+      setSelectedDate,
+      setLoadedItems,
+      loadDates,
+      setMessage,
+    }),
+    dismissUndo: undo.clear,
     copyItem: createCopyItem(setMessage),
     deleteItem: createDeleteItem(refreshView, setMessage),
     updateSettings: createSettingsUpdater({
@@ -198,13 +212,43 @@ interface ClearDateOptions {
   selectedDate: string;
   refreshView: () => Promise<void>;
   setMessage: (value: string) => void;
+  undoShow: (next: UndoState) => void;
 }
 
-function createClearDate({ selectedDate, refreshView, setMessage }: ClearDateOptions) {
+function createClearDate({ selectedDate, refreshView, setMessage, undoShow }: ClearDateOptions) {
   return async () => {
-    await clearClipboardItemsByDate(selectedDate);
+    const ids = await clearClipboardItemsByDate(selectedDate);
     setMessage(`已清空 ${selectedDate} 的剪贴板记录。`);
     await refreshView();
+    if (ids.length > 0) {
+      undoShow({ ids, date: selectedDate, count: ids.length });
+    }
+  };
+}
+
+interface UndoClearOptions {
+  pending: UndoState | null;
+  dismissUndo: () => void;
+  setSearchTerm: (value: string) => void;
+  setSelectedDate: (value: string) => void;
+  setLoadedItems: (items: ClipboardItem[]) => void;
+  loadDates: () => Promise<void>;
+  setMessage: (value: string) => void;
+}
+
+function createUndoClear(options: UndoClearOptions) {
+  return async () => {
+    const pending = options.pending;
+    if (!pending) {
+      return;
+    }
+    await restoreClipboardItems(pending.ids);
+    options.dismissUndo();
+    options.setSearchTerm("");
+    options.setSelectedDate(pending.date);
+    options.setLoadedItems(await listClipboardItems(pending.date));
+    await options.loadDates();
+    options.setMessage(`已恢复 ${pending.count} 条记录。`);
   };
 }
 
