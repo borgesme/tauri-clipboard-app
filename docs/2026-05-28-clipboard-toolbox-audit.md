@@ -87,13 +87,13 @@
 
 打包后 stderr 不可见。建议接 `tracing` + 关键失败 emit 到前端。
 
-### 10. CSP 配置为 null
+### 10. CSP 配置为 null ✅ 2026-05-30 已修复
 
 位置：`src-tauri/tauri.conf.json:21`
 
 `security.csp: null`。即使是本地工具也应当至少设 `default-src 'self'`。
 
-### 11. 设置面板每个字段改动都触发全量保存
+### 11. 设置面板每个字段改动都触发全量保存 ✅ 2026-05-30 已修复
 
 位置：`src/components/clipboard/DesktopSettingsPanel.tsx:43-58`
 
@@ -101,7 +101,7 @@
 
 建议：改为"草稿 + 显式保存"或全量防抖。当前的 `StorageDirRow` 已是草稿模式，可统一这种交互。
 
-### 12. search 用 `LIKE %x%` 全表扫描
+### 12. search 用 `LIKE %x%` 全表扫描 ✅ 2026-05-30 已修复
 
 位置：`src-tauri/src/clipboard/repository.rs:92`
 
@@ -184,9 +184,9 @@ TS 容忍但风格不佳。
 | P1 | 7 | 保留策略每次写入触发 | 性能 |
 | P1 | 8 | 前端零测试 | 可维护性 |
 | P1 | 9 | 错误吞进 `eprintln!` ✅ | 可观测性 |
-| P1 | 10 | CSP 为 null | 安全卫生 |
-| P1 | 11 | 设置面板全量保存 | 体验 |
-| P1 | 12 | search 无 FTS | 性能 |
+| P1 | 10 | CSP 为 null ✅ | 安全卫生 |
+| P1 | 11 | 设置面板全量保存 ✅ | 体验 |
+| P1 | 12 | search 无 FTS ✅ | 性能 |
 | P1 | 13 | Mutex → RwLock | 性能 |
 | P2 | 14 | 回收无 UI | 体验 |
 | P2 | 15 | 存储目录无迁移 | 体验 |
