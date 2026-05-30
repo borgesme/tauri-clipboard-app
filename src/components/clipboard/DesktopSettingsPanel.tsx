@@ -56,10 +56,8 @@ function SettingsForm(props: SettingsFormProps) {
         label="开机启动"
         onChange={(autostartEnabled) => props.onSettingsChange({ ...props.settings, autostartEnabled })}
       />
-      <RetentionRow {...props} />
-      <LimitRow {...props} />
+      <AdvancedSettingsSection {...props} />
       <StorageDirRow {...props} />
-      <PatternRow {...props} />
       <ActionRow label="数据维护" description="物理删除已移入回收状态的记录并压缩数据库。">
         <Button className="settings-button" disabled={props.isBusy} size="sm" variant="outline" onClick={props.onPurgeDeletedItems}>
           清理
@@ -74,37 +72,84 @@ function SettingsForm(props: SettingsFormProps) {
   );
 }
 
-function RetentionRow(props: SettingsFormProps) {
-  return (
-    <ActionRow label="默认保留时长" description="超过期限的非固定记录自动清理。">
-      <NumberInput
-        min={1}
-        suffix="天"
-        value={props.settings.retentionDays}
-        onChange={(retentionDays) => props.onSettingsChange({ ...props.settings, retentionDays })}
-      />
-    </ActionRow>
-  );
-}
+function AdvancedSettingsSection({ settings, isBusy, onSettingsChange }: SettingsFormProps) {
+  const [draft, setDraft] = useState({
+    retentionDays: settings.retentionDays,
+    maxRecordCount: settings.maxRecordCount,
+    maxTextLength: settings.maxTextLength,
+    customSecretPatterns: settings.customSecretPatterns,
+  });
 
-function LimitRow(props: SettingsFormProps) {
+  useEffect(() => {
+    setDraft({
+      retentionDays: settings.retentionDays,
+      maxRecordCount: settings.maxRecordCount,
+      maxTextLength: settings.maxTextLength,
+      customSecretPatterns: settings.customSecretPatterns,
+    });
+  }, [
+    settings.retentionDays,
+    settings.maxRecordCount,
+    settings.maxTextLength,
+    settings.customSecretPatterns,
+  ]);
+
+  const hasChanged =
+    draft.retentionDays !== settings.retentionDays ||
+    draft.maxRecordCount !== settings.maxRecordCount ||
+    draft.maxTextLength !== settings.maxTextLength ||
+    draft.customSecretPatterns !== settings.customSecretPatterns;
+
   return (
-    <ActionRow label="记录容量" description="控制最大记录数和单条文本长度。">
-      <div className="settings-inline-inputs">
+    <>
+      <ActionRow label="默认保留时长" description="超过期限的非固定记录自动清理。">
         <NumberInput
           min={1}
-          suffix="条"
-          value={props.settings.maxRecordCount}
-          onChange={(maxRecordCount) => props.onSettingsChange({ ...props.settings, maxRecordCount })}
+          suffix="天"
+          value={draft.retentionDays}
+          onChange={(retentionDays) => setDraft((current) => ({ ...current, retentionDays }))}
         />
-        <NumberInput
-          min={1}
-          suffix="字"
-          value={props.settings.maxTextLength}
-          onChange={(maxTextLength) => props.onSettingsChange({ ...props.settings, maxTextLength })}
+      </ActionRow>
+      <ActionRow label="记录容量" description="控制最大记录数和单条文本长度。">
+        <div className="settings-inline-inputs">
+          <NumberInput
+            min={1}
+            suffix="条"
+            value={draft.maxRecordCount}
+            onChange={(maxRecordCount) => setDraft((current) => ({ ...current, maxRecordCount }))}
+          />
+          <NumberInput
+            min={1}
+            suffix="字"
+            value={draft.maxTextLength}
+            onChange={(maxTextLength) => setDraft((current) => ({ ...current, maxTextLength }))}
+          />
+        </div>
+      </ActionRow>
+      <div className="setting vertical">
+        <SettingText label="自定义敏感正则" description="每行一条正则；匹配内容会按敏感内容跳过。" />
+        <textarea
+          className="settings-pattern-input"
+          disabled={isBusy}
+          placeholder="例如 ^corp_[A-Za-z0-9]{24}$"
+          value={draft.customSecretPatterns}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setDraft((current) => ({ ...current, customSecretPatterns: value }));
+          }}
         />
       </div>
-    </ActionRow>
+      <ActionRow label="高级设置" description="保留时长、容量与正则改动后点击保存生效。">
+        <Button
+          className="settings-button"
+          disabled={isBusy || !hasChanged}
+          size="sm"
+          onClick={() => onSettingsChange({ ...settings, ...draft })}
+        >
+          保存设置
+        </Button>
+      </ActionRow>
+    </>
   );
 }
 
@@ -146,21 +191,6 @@ function StorageDirRow({ settings, isBusy, onSettingsChange }: SettingsFormProps
   );
 }
 
-function PatternRow(props: SettingsFormProps) {
-  return (
-    <div className="setting vertical">
-      <SettingText label="自定义敏感正则" description="每行一条正则；匹配内容会按敏感内容跳过。" />
-      <textarea
-        className="settings-pattern-input"
-        disabled={props.isBusy}
-        placeholder="例如 ^corp_[A-Za-z0-9]{24}$"
-        value={props.settings.customSecretPatterns}
-        onChange={(event) => props.onSettingsChange({ ...props.settings, customSecretPatterns: event.currentTarget.value })}
-      />
-    </div>
-  );
-}
-
 function SwitchRow({
   checked,
   description,
@@ -176,7 +206,7 @@ function SwitchRow({
 }) {
   return (
     <ActionRow label={label} description={description}>
-      <Switch className="settings-switch" checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      <Switch className="settings-switch" aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </ActionRow>
   );
 }
