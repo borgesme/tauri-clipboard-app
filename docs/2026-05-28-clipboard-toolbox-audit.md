@@ -81,7 +81,7 @@
 
 `src/` 下没有任何 `*.test.ts(x)`，没装 Vitest。`useClipboardWorkspace`、`clipStudioHelpers`、`skipMessage` 等核心逻辑全裸奔。
 
-### 9. 错误统一吞进 `eprintln!`
+### 9. 错误统一吞进 `eprintln!` ✅ 2026-05-30 已修复
 
 位置：`monitor.rs:25,33,58`、`commands.rs:173,179`、`desktop.rs:54,197`
 
@@ -183,7 +183,7 @@ TS 容忍但风格不佳。
 | P1 | 6 | DB 连接每次新开 | 性能 |
 | P1 | 7 | 保留策略每次写入触发 | 性能 |
 | P1 | 8 | 前端零测试 | 可维护性 |
-| P1 | 9 | 错误吞进 `eprintln!` | 可观测性 |
+| P1 | 9 | 错误吞进 `eprintln!` ✅ | 可观测性 |
 | P1 | 10 | CSP 为 null | 安全卫生 |
 | P1 | 11 | 设置面板全量保存 | 体验 |
 | P1 | 12 | search 无 FTS | 性能 |
