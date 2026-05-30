@@ -1,3 +1,5 @@
+import { confirm } from "@tauri-apps/plugin-dialog";
+
 import { Button } from "@/components/ui/button";
 
 export function MaintenanceAction({
@@ -13,11 +15,26 @@ export function MaintenanceAction({
         <div className="text-sm font-medium">数据维护</div>
         <div className="text-xs text-muted-foreground">物理删除已移入回收状态的记录并压缩数据库</div>
       </div>
-      <Button disabled={isBusy} size="sm" variant="outline" onClick={onPurgeDeletedItems}>
+      <Button
+        disabled={isBusy}
+        size="sm"
+        variant="outline"
+        onClick={() => void confirmPurge(onPurgeDeletedItems)}
+      >
         清理已删除记录
       </Button>
     </div>
   );
+}
+
+async function confirmPurge(onPurgeDeletedItems: () => void) {
+  const ok = await confirm(
+    "将物理删除所有已移入回收状态的记录，此操作不可恢复。是否继续？",
+    { title: "清理已删除记录", kind: "warning" },
+  );
+  if (ok) {
+    onPurgeDeletedItems();
+  }
 }
 
 export function CustomSecretPatternsSetting({
