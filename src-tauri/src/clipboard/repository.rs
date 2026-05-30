@@ -238,14 +238,17 @@ pub fn soft_delete_items_by_date(
     connection: &Connection,
     date: &str,
     now: &str,
-) -> Result<usize, ClipboardError> {
-    let changed = connection.execute(
+) -> Result<Vec<i64>, ClipboardError> {
+    let mut statement = connection.prepare(
         "UPDATE clipboard_items
          SET deleted_at = ?1
-         WHERE local_date = ?2 AND deleted_at IS NULL",
-        params![now, date],
+         WHERE local_date = ?2 AND deleted_at IS NULL
+         RETURNING id",
     )?;
-    Ok(changed)
+    let ids = statement
+        .query_map(params![now, date], |row| row.get::<_, i64>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ids)
 }
 
 pub fn get_i64_setting(

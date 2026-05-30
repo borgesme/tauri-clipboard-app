@@ -110,7 +110,7 @@ fn soft_deletes_all_items_by_date() {
     let changed =
         soft_delete_items_by_date(&conn, "2026-05-26", "2026-05-26T12:00:00+08:00").unwrap();
 
-    assert_eq!(2, changed);
+    assert_eq!(2, changed.len());
     assert!(list_items_by_date(&conn, "2026-05-26").unwrap().is_empty());
     assert_eq!(1, list_items_by_date(&conn, "2026-05-27").unwrap().len());
 }
@@ -508,4 +508,24 @@ fn search_is_case_insensitive_via_fts() {
     let results = search_items(&conn, "alphac").unwrap();
     assert_eq!(1, results.len());
     assert_eq!("AlphaCode", results[0].content);
+}
+
+#[test]
+fn clear_returns_soft_deleted_ids() {
+    let path = temp_database_path("clear-returns-ids");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+
+    let one = upsert_text_item(&conn, "one", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    let two = upsert_text_item(&conn, "two", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
+    let already = upsert_text_item(&conn, "gone", "hash-3", "2026-05-26T09:00:00+08:00", "2026-05-26").unwrap();
+    soft_delete_item(&conn, already.id, "2026-05-26T09:30:00+08:00").unwrap();
+
+    let mut ids = soft_delete_items_by_date(&conn, "2026-05-26", "2026-05-26T12:00:00+08:00").unwrap();
+    ids.sort();
+    let mut expected = vec![one.id, two.id];
+    expected.sort();
+
+    assert_eq!(expected, ids);
+    assert!(!ids.contains(&already.id));
 }

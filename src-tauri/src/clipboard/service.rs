@@ -134,7 +134,7 @@ impl ClipboardService {
         repository::soft_delete_item(&conn, id, &now_iso())
     }
 
-    pub fn clear_items_by_date(&self, date: &str) -> Result<usize, ClipboardError> {
+    pub fn clear_items_by_date(&self, date: &str) -> Result<Vec<i64>, ClipboardError> {
         let conn = self.lock_items_conn()?;
         repository::soft_delete_items_by_date(&conn, date, &now_iso())
     }
