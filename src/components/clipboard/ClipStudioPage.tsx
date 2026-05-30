@@ -4,6 +4,7 @@ import { ClipStudioDetailDialog } from "@/components/clipboard/ClipStudioDetailD
 import { ClipStudioLayout } from "@/components/clipboard/ClipStudioLayout";
 import { ClipStudioList } from "@/components/clipboard/ClipStudioList";
 import { ClipStudioPanel } from "@/components/clipboard/ClipStudioPanel";
+import { UndoToast } from "@/components/clipboard/UndoToast";
 import { useKeyboardShortcuts } from "@/components/clipboard/useClipStudioKeyboard";
 import {
   type ClipFilter,
@@ -30,11 +31,18 @@ export function ClipStudioPage({ workspace, panelRequest }: ClipStudioPageProps)
   usePageKeyboard(workspace, state);
 
   return (
-    <ClipStudioLayout {...createLayoutProps(workspace, state)}>
-      <ClipStudioList {...createListProps(workspace, state)} />
-      <ClipStudioPanel {...createPanelProps(workspace, state)} />
-      <ClipStudioDetailDialog {...createDialogProps(workspace, state)} />
-    </ClipStudioLayout>
+    <>
+      <ClipStudioLayout {...createLayoutProps(workspace, state)}>
+        <ClipStudioList {...createListProps(workspace, state)} />
+        <ClipStudioPanel {...createPanelProps(workspace, state)} />
+        <ClipStudioDetailDialog {...createDialogProps(workspace, state)} />
+      </ClipStudioLayout>
+      <UndoToast
+        pending={workspace.undoState}
+        onUndo={() => void workspace.undoClear()}
+        onDismiss={workspace.dismissUndo}
+      />
+    </>
   );
 }
 
