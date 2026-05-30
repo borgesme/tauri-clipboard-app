@@ -133,11 +133,11 @@ UI 警告写了但没有"迁移旧数据"按钮，体验缺一块。
 
 `src-tauri/src/lib.rs` 已接入 `tauri_plugin_log`（Stdout + LogDir 双 target），此项在审计前已完成。
 
-### 17. 窗口缺 `minWidth` / `minHeight` / `resizable`
+### 17. 窗口缺 `minWidth` / `minHeight` / `resizable` ✅ 2026-05-30 已修复
 
 `src-tauri/tauri.conf.json` 没限制，可缩到 UI 崩溃。
 
-### 18. `App.tsx` 中 interface 用在前定义在后
+### 18. `App.tsx` 中 interface 用在前定义在后 ✅ 2026-05-30 已修复
 
 位置：`src/App.tsx:11` 使用，`src/App.tsx:30` 定义
 
@@ -193,8 +193,8 @@ TS 容忍但风格不佳。
 | P2 | 14 | 回收无 UI | 体验 |
 | P2 | 15 | 存储目录无迁移 | 体验 |
 | P2 | 16 | 没启用日志插件 ✅ | 开发体验 |
-| P2 | 17 | 窗口无尺寸约束 | 体验 |
-| P2 | 18 | interface 用在定义前 | 代码风格 |
+| P2 | 17 | 窗口无尺寸约束 ✅ | 体验 |
+| P2 | 18 | interface 用在定义前 ✅ | 代码风格 |
 | P2 | 19 | VACUUM 阻塞无反馈 | 体验 |
 | P2 | 20 | bundle 只支持 nsis | 平台覆盖 |
 | P2 | 21 | 布尔设置存字符串 | 代码风格 |
