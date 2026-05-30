@@ -37,8 +37,12 @@ export function deleteClipboardItem(id: number): Promise<void> {
   return invoke("delete_clipboard_item", { id });
 }
 
-export function clearClipboardItemsByDate(date: string): Promise<void> {
+export function clearClipboardItemsByDate(date: string): Promise<number[]> {
   return invoke("clear_clipboard_items_by_date", { date });
+}
+
+export function restoreClipboardItems(ids: number[]): Promise<number> {
+  return invoke("restore_clipboard_items", { ids });
 }
 
 export function purgeDeletedClipboardItems(vacuum = false): Promise<number> {
