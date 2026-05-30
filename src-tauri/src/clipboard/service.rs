@@ -139,6 +139,11 @@ impl ClipboardService {
         repository::soft_delete_items_by_date(&conn, date, &now_iso())
     }
 
+    pub fn restore_items(&self, ids: &[i64]) -> Result<usize, ClipboardError> {
+        let conn = self.lock_items_conn()?;
+        repository::restore_items(&conn, ids)
+    }
+
     pub fn purge_deleted_items(&self, vacuum: bool) -> Result<usize, ClipboardError> {
         let conn = self.lock_items_conn()?;
         let removed = maintenance::purge_deleted_items(&conn)?;

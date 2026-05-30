@@ -346,3 +346,22 @@ fn retention_counter_resets_after_settings_update() {
         "更新设置后计数应归零，再推进 N-1 次不应触发"
     );
 }
+
+#[test]
+fn clear_returns_ids_and_restore_brings_them_back() {
+    let default_path = temp_database_path("clear-restore");
+    let service = ClipboardService::new(default_path.clone()).unwrap();
+    {
+        let conn = super::service_runtime::open_connection(&default_path).unwrap();
+        repository::upsert_text_item(&conn, "alpha", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+        repository::upsert_text_item(&conn, "beta", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
+    }
+
+    let ids = service.clear_items_by_date("2026-05-26").unwrap();
+    assert_eq!(2, ids.len());
+    assert!(service.list_items_by_date("2026-05-26").unwrap().is_empty());
+
+    let restored = service.restore_items(&ids).unwrap();
+    assert_eq!(2, restored);
+    assert_eq!(2, service.list_items_by_date("2026-05-26").unwrap().len());
+}
