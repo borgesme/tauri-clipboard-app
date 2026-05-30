@@ -3,9 +3,9 @@ use std::sync::Arc;
 use clipboard::commands::{
     clear_clipboard_items_by_date, copy_clipboard_item, delete_clipboard_item, get_clipboard_item,
     get_clipboard_monitor_status, get_desktop_settings, hide_main_window, list_clipboard_dates,
-    list_clipboard_items, purge_deleted_clipboard_items, search_clipboard_items,
-    set_clipboard_monitor_enabled, show_main_window, update_desktop_settings, validate_storage_dir,
-    ClipboardState,
+    list_clipboard_items, purge_deleted_clipboard_items, restore_clipboard_items,
+    search_clipboard_items, set_clipboard_monitor_enabled, show_main_window, update_desktop_settings,
+    validate_storage_dir, ClipboardState,
 };
 use clipboard::monitor::start_clipboard_monitor;
 use clipboard::service::ClipboardService;
@@ -59,6 +59,7 @@ pub fn run() {
             delete_clipboard_item,
             clear_clipboard_items_by_date,
             purge_deleted_clipboard_items,
+            restore_clipboard_items,
             set_clipboard_monitor_enabled,
             get_clipboard_monitor_status,
             get_desktop_settings,

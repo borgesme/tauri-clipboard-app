@@ -70,10 +70,18 @@ pub fn clear_clipboard_items_by_date(
     app_handle: AppHandle,
     date: String,
     state: State<'_, ClipboardState>,
-) -> Result<(), ClipboardError> {
-    state.0.clear_items_by_date(&date)?;
+) -> Result<Vec<i64>, ClipboardError> {
+    let ids = state.0.clear_items_by_date(&date)?;
     emit_deleted(&app_handle, None, Some(date));
-    Ok(())
+    Ok(ids)
+}
+
+#[tauri::command]
+pub fn restore_clipboard_items(
+    ids: Vec<i64>,
+    state: State<'_, ClipboardState>,
+) -> Result<usize, ClipboardError> {
+    state.0.restore_items(&ids)
 }
 
 #[tauri::command]
