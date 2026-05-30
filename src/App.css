@@ -199,3 +199,7 @@
 .clip-list{padding:0 10px 14px;}
 .clip-row{grid-template-columns:28px minmax(0,1fr);align-items:start;gap:9px;padding:10px;}
 }
+.undo-toast{position:fixed;right:24px;bottom:24px;z-index:60;display:flex;align-items:center;gap:12px;border:1px solid var(--clip-border-strong);border-radius:14px;background:var(--clip-surface);color:var(--clip-fg);box-shadow:0 12px 32px rgba(20,20,19,0.22);padding:12px 16px;font-size:13px;}
+.undo-toast span{color:var(--clip-fg);}
+.undo-toast button{border:0;background:none;cursor:pointer;font-size:13px;color:var(--clip-accent);padding:2px 4px;}
+.undo-toast button[aria-label="关闭"]{color:var(--clip-muted);font-size:16px;line-height:1;}
