@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension, Row};
 
 use super::error::ClipboardError;
 use super::hash::preview;
@@ -249,6 +249,19 @@ pub fn soft_delete_items_by_date(
         .query_map(params![now, date], |row| row.get::<_, i64>(0))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ids)
+}
+
+pub fn restore_items(connection: &Connection, ids: &[i64]) -> Result<usize, ClipboardError> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let sql = format!(
+        "UPDATE clipboard_items SET deleted_at = NULL
+         WHERE id IN ({placeholders}) AND deleted_at IS NOT NULL"
+    );
+    let changed = connection.execute(&sql, params_from_iter(ids.iter()))?;
+    Ok(changed)
 }
 
 pub fn get_i64_setting(

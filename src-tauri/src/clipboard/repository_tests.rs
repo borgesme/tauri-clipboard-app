@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::repository::{
     cleanup_items, get_i64_setting, get_item_by_id, get_string_setting, init_schema,
-    list_date_groups, list_items_by_date, migrate_schema, search_items, set_setting,
+    list_date_groups, list_items_by_date, migrate_schema, restore_items, search_items, set_setting,
     soft_delete_item, soft_delete_items_by_date, upsert_text_item,
 };
 use super::service_runtime::open_connection;
@@ -528,4 +528,69 @@ fn clear_returns_soft_deleted_ids() {
 
     assert_eq!(expected, ids);
     assert!(!ids.contains(&already.id));
+}
+
+#[test]
+fn restore_items_clears_deleted_at() {
+    let path = temp_database_path("restore-clears");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+    migrate_schema(&conn).unwrap();
+
+    upsert_text_item(&conn, "alpha note", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    upsert_text_item(&conn, "beta note", "hash-2", "2026-05-26T11:00:00+08:00", "2026-05-26").unwrap();
+    let ids = soft_delete_items_by_date(&conn, "2026-05-26", "2026-05-26T12:00:00+08:00").unwrap();
+    assert!(list_items_by_date(&conn, "2026-05-26").unwrap().is_empty());
+
+    let restored = restore_items(&conn, &ids).unwrap();
+
+    assert_eq!(2, restored);
+    assert_eq!(2, list_items_by_date(&conn, "2026-05-26").unwrap().len());
+    assert_eq!(1, search_items(&conn, "alpha").unwrap().len());
+    assert_eq!(1, search_items(&conn, "beta").unwrap().len());
+}
+
+#[test]
+fn restore_items_empty_returns_zero() {
+    let path = temp_database_path("restore-empty");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+
+    let restored = restore_items(&conn, &[]).unwrap();
+
+    assert_eq!(0, restored);
+}
+
+#[test]
+fn restore_items_ignores_already_active() {
+    let path = temp_database_path("restore-active");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+
+    let item = upsert_text_item(&conn, "active", "hash-1", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+
+    let restored = restore_items(&conn, &[item.id]).unwrap();
+
+    assert_eq!(0, restored);
+    assert_eq!(1, list_items_by_date(&conn, "2026-05-26").unwrap().len());
+}
+
+#[test]
+fn restore_items_does_not_touch_other_deleted() {
+    let path = temp_database_path("restore-isolated");
+    let conn = open_connection(&path).unwrap();
+    init_schema(&conn).unwrap();
+
+    // A 批：手动清空当日（软删）
+    upsert_text_item(&conn, "batch-a", "hash-a", "2026-05-26T10:00:00+08:00", "2026-05-26").unwrap();
+    let batch_a = soft_delete_items_by_date(&conn, "2026-05-26", "2026-05-26T12:00:00+08:00").unwrap();
+    // B 批：另一天单条软删（模拟 retention / 单删）
+    let b = upsert_text_item(&conn, "batch-b", "hash-b", "2026-05-27T10:00:00+08:00", "2026-05-27").unwrap();
+    soft_delete_item(&conn, b.id, "2026-05-27T12:00:00+08:00").unwrap();
+
+    let restored = restore_items(&conn, &batch_a).unwrap();
+
+    assert_eq!(1, restored);
+    assert_eq!(1, list_items_by_date(&conn, "2026-05-26").unwrap().len());
+    assert!(list_items_by_date(&conn, "2026-05-27").unwrap().is_empty());
 }
