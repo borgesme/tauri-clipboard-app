@@ -109,11 +109,13 @@ content/preview 没 FTS 索引。数据量上千后会卡顿。
 
 建议：引入 SQLite FTS5。
 
-### 13. `Mutex` 改 `RwLock`
+### 13. `Mutex` 改 `RwLock` ⛔ 2026-05-30 WONTFIX
 
 位置：`src-tauri/src/clipboard/service.rs:22-25`
 
 监听线程主要读 `monitor_enabled` / `database_path`，读多写少，RwLock 减少阻塞。次要优化。
+
+**WONTFIX 理由：** `Connection` 非 `Sync`，连接本身必须留在 `Mutex` 后面，无法改 `RwLock`；可改的只有 `monitor_enabled` / `database_path` 两个标量，而监听线程每 800ms 才读一次，竞争近乎为零，收益不抵改动与维护成本。
 
 ---
 
@@ -127,9 +129,9 @@ content/preview 没 FTS 索引。数据量上千后会卡顿。
 
 UI 警告写了但没有"迁移旧数据"按钮，体验缺一块。
 
-### 16. 没启用日志插件
+### 16. 没启用日志插件 ✅ 2026-05-30 已实现
 
-未引 `tauri_plugin_log`，dev 阶段后端排查全靠 println。
+`src-tauri/src/lib.rs` 已接入 `tauri_plugin_log`（Stdout + LogDir 双 target），此项在审计前已完成。
 
 ### 17. 窗口缺 `minWidth` / `minHeight` / `resizable`
 
@@ -187,10 +189,10 @@ TS 容忍但风格不佳。
 | P1 | 10 | CSP 为 null ✅ | 安全卫生 |
 | P1 | 11 | 设置面板全量保存 ✅ | 体验 |
 | P1 | 12 | search 无 FTS ✅ | 性能 |
-| P1 | 13 | Mutex → RwLock | 性能 |
+| P1 | 13 | Mutex → RwLock ⛔ WONTFIX | 性能 |
 | P2 | 14 | 回收无 UI | 体验 |
 | P2 | 15 | 存储目录无迁移 | 体验 |
-| P2 | 16 | 没启用日志插件 | 开发体验 |
+| P2 | 16 | 没启用日志插件 ✅ | 开发体验 |
 | P2 | 17 | 窗口无尺寸约束 | 体验 |
 | P2 | 18 | interface 用在定义前 | 代码风格 |
 | P2 | 19 | VACUUM 阻塞无反馈 | 体验 |

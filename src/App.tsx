@@ -6,6 +6,11 @@ import type { PanelTab } from "@/components/clipboard/clipStudioHelpers";
 import { useClipboardWorkspace } from "@/hooks/useClipboardWorkspace";
 import "./App.css";
 
+interface PanelRequest {
+  revision: number;
+  tab: PanelTab;
+}
+
 function App() {
   const workspace = useClipboardWorkspace();
   const [panelRequest, setPanelRequest] = useState<PanelRequest>({ revision: 0, tab: "calendar" });
@@ -25,11 +30,6 @@ function App() {
       <ClipStudioPage workspace={workspace} panelRequest={panelRequest} />
     </main>
   );
-}
-
-interface PanelRequest {
-  revision: number;
-  tab: PanelTab;
 }
 
 export default App;
