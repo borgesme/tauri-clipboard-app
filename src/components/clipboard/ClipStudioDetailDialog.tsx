@@ -1,5 +1,6 @@
 import { Copy, Pin, Send, Trash2, X } from "lucide-react";
 
+import { CodeBlock } from "@/components/clipboard/CodeBlock";
 import {
   formatDateTime,
   getClipKind,
@@ -38,7 +39,11 @@ export function ClipStudioDetailDialog({ item, onClose, onCopy, onDelete, onSend
           </button>
         </div>
         <div className="detail-body">
-          <div className="detail-content">{item.content}</div>
+          {kind === "code" ? (
+            <CodeBlock content={item.content} />
+          ) : (
+            <div className="detail-content">{item.content}</div>
+          )}
           <div className="detail-grid">
             <DetailCell label="首次捕获" value={formatDateTime(item.createdAt)} />
             <DetailCell label="最近复制" value={formatDateTime(item.lastCopiedAt)} />
