@@ -16,14 +16,18 @@ export function filterClipboardItems(items: ClipboardItem[], filter: ClipFilter)
 }
 
 export function getClipKind(item: ClipboardItem): ClipKind {
-  const content = item.content.trim();
-  if (isSecretLike(content)) {
+  return getClipKindFromContent(item.content);
+}
+
+export function getClipKindFromContent(content: string): ClipKind {
+  const trimmed = content.trim();
+  if (isSecretLike(trimmed)) {
     return "secret";
   }
-  if (/^https?:\/\//i.test(content)) {
+  if (/^https?:\/\//i.test(trimmed)) {
     return "link";
   }
-  if (isCodeLike(content)) {
+  if (isCodeLike(trimmed)) {
     return "code";
   }
   return "text";

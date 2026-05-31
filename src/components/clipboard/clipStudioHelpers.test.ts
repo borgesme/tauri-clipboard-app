@@ -5,6 +5,7 @@ import {
   filterClipboardItems,
   getClipIcon,
   getClipKind,
+  getClipKindFromContent,
   getClipKindLabel,
 } from "@/components/clipboard/clipStudioHelpers";
 import type { ClipboardDateGroup, ClipboardItem } from "@/types/clipboard";
@@ -51,6 +52,26 @@ describe("getClipKind", () => {
 
   it("prefers secret over link when both match", () => {
     expect(getClipKind(makeItem({ content: "https://example.com?token=abc" }))).toBe("secret");
+  });
+});
+
+describe("getClipKindFromContent", () => {
+  it("classifies content the same way getClipKind classifies an item", () => {
+    const samples = [
+      "eyJhbGci.eyJzdWIi.SflKxwRJ",
+      "https://example.com",
+      "title\nconst x = 1",
+      "doThing();",
+      "just a plain note",
+    ];
+    for (const content of samples) {
+      expect(getClipKindFromContent(content)).toBe(getClipKind(makeItem({ content })));
+    }
+  });
+
+  it("normalizes surrounding whitespace before classifying", () => {
+    expect(getClipKindFromContent("   https://example.com   ")).toBe("link");
+    expect(getClipKindFromContent("\n\n  just a plain note  \n")).toBe("text");
   });
 });
 
