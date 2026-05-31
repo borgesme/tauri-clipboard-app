@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { DesktopSettingsPanel } from "@/components/clipboard/DesktopSettingsPanel";
 import type { DesktopSettings } from "@/types/clipboard";
 
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+const confirmMock = vi.fn();
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn(),
+  confirm: (...args: unknown[]) => confirmMock(...args),
+}));
 vi.mock("@/api/clipboard", () => ({
   validateStorageDir: vi.fn().mockResolvedValue(undefined),
 }));
@@ -73,5 +78,48 @@ describe("DesktopSettingsPanel 混合保存", () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       expect.objectContaining({ monitorEnabled: false }),
     );
+  });
+});
+
+describe("DesktopSettingsPanel 清理二次确认", () => {
+  beforeEach(() => {
+    confirmMock.mockReset();
+  });
+
+  it("confirm 返回 true 时调用 onPurgeDeletedItems", async () => {
+    confirmMock.mockResolvedValue(true);
+    const onPurge = vi.fn();
+    render(
+      <DesktopSettingsPanel
+        settings={SETTINGS}
+        isBusy={false}
+        onSettingsChange={vi.fn()}
+        onPurgeDeletedItems={onPurge}
+        onHideWindow={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "清理" }));
+
+    await waitFor(() => expect(onPurge).toHaveBeenCalledTimes(1));
+  });
+
+  it("confirm 返回 false 时不调用 onPurgeDeletedItems", async () => {
+    confirmMock.mockResolvedValue(false);
+    const onPurge = vi.fn();
+    render(
+      <DesktopSettingsPanel
+        settings={SETTINGS}
+        isBusy={false}
+        onSettingsChange={vi.fn()}
+        onPurgeDeletedItems={onPurge}
+        onHideWindow={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "清理" }));
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1));
+    expect(onPurge).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { validateStorageDir } from "@/api/clipboard";
+import { confirmPurge } from "@/components/clipboard/SettingsAdvancedActions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,7 @@ function SettingsForm(props: SettingsFormProps) {
       <AdvancedSettingsSection {...props} />
       <StorageDirRow {...props} />
       <ActionRow label="数据维护" description="物理删除已移入回收状态的记录并压缩数据库。">
-        <Button className="settings-button" disabled={props.isBusy} size="sm" variant="outline" onClick={props.onPurgeDeletedItems}>
+        <Button className="settings-button" disabled={props.isBusy} size="sm" variant="outline" onClick={() => void confirmPurge(props.onPurgeDeletedItems)}>
           清理
         </Button>
       </ActionRow>

@@ -27,7 +27,7 @@ export function MaintenanceAction({
   );
 }
 
-async function confirmPurge(onPurgeDeletedItems: () => void) {
+export async function confirmPurge(onPurgeDeletedItems: () => void) {
   const ok = await confirm(
     "将物理删除所有已移入回收状态的记录，此操作不可恢复。是否继续？",
     { title: "清理已删除记录", kind: "warning" },
