@@ -116,7 +116,7 @@
 .calendar-list{display:grid;gap:8px;}
 .date-button{display:flex;align-items:center;justify-content:space-between;border-radius:14px;background:rgba(250,249,245,0.8);padding:10px;text-align:left;}
 .date-button.active{border-color:var(--clip-accent);background:#fff;box-shadow:0 0 0 3px var(--clip-accent-soft);}
-.toolbox-head{display:flex;justify-content:flex-end;margin-bottom:10px;}
+.toolbox-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .toolbox-input{width:100%;min-height:130px;resize:vertical;border:1px solid var(--clip-border-strong);border-radius:14px;outline:0;background:#fff;color:var(--clip-fg);line-height:1.55;padding:12px;}
 .toolbox-input:focus{border-color:var(--clip-focus);box-shadow:0 0 0 3px rgba(56,152,236,0.14);}
 .tool-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;}
@@ -205,3 +205,7 @@
 .undo-toast button[aria-label="关闭"]{color:var(--clip-muted);font-size:16px;line-height:1;}
 .code-block{margin:0;max-height:340px;overflow:auto;border:1px solid var(--clip-border-strong);border-radius:14px;background:#fff;}
 .code-block code.hljs{display:block;padding:14px;background:transparent;font-family:ui-monospace,SFMono-Regular,"Consolas","Liberation Mono",monospace;font-size:13px;line-height:1.55;white-space:pre;}
+.toolbox-mode-switch{display:inline-flex;gap:4px;margin-left:auto;}
+.toolbox-mode-button{border:1px solid var(--clip-border-strong);border-radius:10px;padding:4px 12px;font-size:13px;background:#fff;color:var(--clip-muted);cursor:pointer;}
+.toolbox-mode-button.active{background:var(--clip-focus);color:#fff;border-color:transparent;}
+.toolbox-preview{margin-top:0;}

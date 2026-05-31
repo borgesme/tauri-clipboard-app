@@ -1,18 +1,21 @@
+import { useState } from "react";
 import { Copy, Send, Settings, WandSparkles, X } from "lucide-react";
 
 import { ClipStudioCalendarPanel } from "@/components/clipboard/ClipStudioCalendarPanel";
+import { CodeBlock } from "@/components/clipboard/CodeBlock";
 import { DesktopSettingsPanel } from "@/components/clipboard/DesktopSettingsPanel";
 import { Kbd } from "@/components/clipboard/ClipStudioLayout";
 import {
   type PanelTab,
   type ToolboxAction,
   createToolboxResult,
+  getClipKindFromContent,
 } from "@/components/clipboard/clipStudioHelpers";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ClipboardDateGroup, ClipboardItem, DesktopSettings } from "@/types/clipboard";
 
-interface ClipStudioPanelProps {
+export interface ClipStudioPanelProps {
   activeTab: PanelTab;
   dates: ClipboardDateGroup[];
   selectedDate: string;
@@ -107,6 +110,9 @@ function CalendarPanel(props: ClipStudioPanelProps) {
 }
 
 function ToolboxPanel(props: ClipStudioPanelProps) {
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const isCode = getClipKindFromContent(props.toolboxText) === "code";
+  const showPreview = mode === "preview" && isCode;
   return (
     <section className="clip-panel-view">
       <InfoCard icon={<WandSparkles className="size-4" />} title="文本处理工具箱">
@@ -118,12 +124,34 @@ function ToolboxPanel(props: ClipStudioPanelProps) {
             <Send className="size-4" />
             送入工具箱
           </Button>
+          {isCode ? (
+            <div className="toolbox-mode-switch">
+              <button
+                type="button"
+                className={cn("toolbox-mode-button", mode === "edit" && "active")}
+                onClick={() => setMode("edit")}
+              >
+                编辑
+              </button>
+              <button
+                type="button"
+                className={cn("toolbox-mode-button", mode === "preview" && "active")}
+                onClick={() => setMode("preview")}
+              >
+                预览
+              </button>
+            </div>
+          ) : null}
         </div>
-        <textarea
-          className="toolbox-input"
-          value={props.toolboxText}
-          onChange={(event) => props.onToolboxTextChange(event.currentTarget.value)}
-        />
+        {showPreview ? (
+          <CodeBlock content={props.toolboxText} className="toolbox-preview" />
+        ) : (
+          <textarea
+            className="toolbox-input"
+            value={props.toolboxText}
+            onChange={(event) => props.onToolboxTextChange(event.currentTarget.value)}
+          />
+        )}
         <div className="tool-grid">
           {toolActions.map((action) => (
             <button
