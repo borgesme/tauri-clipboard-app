@@ -203,3 +203,5 @@
 .undo-toast span{color:var(--clip-fg);}
 .undo-toast button{border:0;background:none;cursor:pointer;font-size:13px;color:var(--clip-accent);padding:2px 4px;}
 .undo-toast button[aria-label="关闭"]{color:var(--clip-muted);font-size:16px;line-height:1;}
+.code-block{margin:0;max-height:340px;overflow:auto;border:1px solid var(--clip-border-strong);border-radius:14px;background:#fff;}
+.code-block code.hljs{display:block;padding:14px;background:transparent;font-family:ui-monospace,SFMono-Regular,"Consolas","Liberation Mono",monospace;font-size:13px;line-height:1.55;white-space:pre;}
